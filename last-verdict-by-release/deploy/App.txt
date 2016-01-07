@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Last Verdict By Release</title>
+    <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
+    <!--  Build Date: Thu Jan 07 2016 15:06:06 GMT-0700 (MST) -->
+    
+    <script type="text/javascript">
+        var APP_BUILD_DATE = "Thu Jan 07 2016 15:06:06 GMT-0700 (MST)";
+        var CHECKSUM = 3376453921;
+    </script>
+    
+    <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
+
+    <script type="text/javascript">
+        Rally.onReady(function() {
+             
+/**
+ * A link that pops up a version dialog box
+ */
+
+Ext.define('Rally.technicalservices.InfoLink',{
+    extend: 'Rally.ui.dialog.Dialog',
+    alias: 'widget.tsinfolink',
+    
+    /**
+     * @cfg {String} informationHtml
+     * Additional text to be displayed on the popup dialog (for exmaple,
+     * to add a description of the app's use or functionality)
+     */
+    informationHtml: null,
+    
+    /**
+     * 
+     * cfg {String} title
+     * The title for the dialog box
+     */
+    title: "Build Information",
+    
+    defaults: { padding: 5, margin: 5 },
+
+    closable: true,
+     
+    draggable: true,
+
+    autoShow: true,
+   
+    width: 350, 
+    
+    initComponent: function() {
+        var id = Ext.id(this);
+        this.title =  "<span class='icon-help'> </span>" + this.title;
+        this.callParent(arguments);
+    },
+    
+    _generateChecksum: function(string){
+        var chk = 0x12345678,
+            i;
+        string = string.replace(/var CHECKSUM = .*;/,"");
+        string = string.replace(/\s/g,"");  //Remove all whitespace from the string.
+        
+        for (i = 0; i < string.length; i++) {
+            chk += (string.charCodeAt(i) * i);
+        }
+    
+        return chk;
+    },
+    
+    _checkChecksum: function(container) {
+        var deferred = Ext.create('Deft.Deferred');
+        console.log("_checkChecksum", container);
+        var me = this;
+        
+        Ext.Ajax.request({
+            url: document.URL,
+            params: {
+                id: 1
+            },
+            success: function (response) {
+                text = response.responseText;
+                if ( CHECKSUM ) {
+                    if ( CHECKSUM !== me._generateChecksum(text) ) {
+                        console.log("Checksums don't match!");
+                        deferred.resolve(false);
+                        return;
+                    }
+                }
+                deferred.resolve(true);
+            }
+        });
+        
+        return deferred.promise;
+    },
+    
+    afterRender: function() {
+        var app = Rally.getApp();
+        
+        if (! app.isExternal() ) {
+                
+            this._checkChecksum(app).then({
+                scope: this,
+                success: function(result){
+                    if ( !result ) {
+                        this.addDocked({
+                            xtype:'container',
+                            cls: 'build-info',
+                            padding: 2,
+                            html:'<span class="icon-warning"> </span>Checksums do not match'
+                        });
+                    }
+                },
+                failure: function(msg){
+                    console.log("oops:",msg);
+                }
+            });
+        } else {
+            this.addDocked({
+                xtype:'container',
+                cls: 'build-info',
+                padding: 2,
+                html:'... Running externally'
+            });
+        }
+        this.callParent(arguments);
+    },
+    
+    beforeRender: function() {
+        var me = this;
+        this.callParent(arguments);
+
+        if (this.informationHtml) {
+            this.addDocked({
+                xtype: 'component',
+                componentCls: 'intro-panel',
+                padding: 2,
+                html: this.informationHtml
+            });
+        }
+        
+        this.addDocked({
+            xtype:'container',
+            cls: 'build-info',
+            padding: 2,
+            html:"This app was created by the Rally Technical Services Team."
+        });
+        
+        if ( APP_BUILD_DATE ) {
+            this.addDocked({
+                xtype:'container',
+                cls: 'build-info',
+                padding: 2,
+                html:'Build date/time: ' + APP_BUILD_DATE
+            });
+        }
+    }
+});
+
+/*
+ */
+Ext.define('Rally.technicalservices.Logger',{
+    constructor: function(config){
+        Ext.apply(this,config);
+    },
+    log: function(args){
+        var timestamp = "[ " + Ext.util.Format.date(new Date(), "Y-m-d H:i:s.u") + " ]";
+        //var output_args = arguments;
+        //output_args.unshift( [ "[ " + timestamp + " ]" ] );
+        //output_args = Ext.Array.push(output_args,arguments);
+        
+        var output_args = [];
+        output_args = Ext.Array.push(output_args,[timestamp]);
+        output_args = Ext.Array.push(output_args, Ext.Array.slice(arguments,0));
+
+        window.console && console.log.apply(console,output_args);
+    }
+
+});
+
+Ext.define("last-verdict-by-release", {
+    extend: 'Rally.app.App',
+    componentCls: 'app',
+    logger: new Rally.technicalservices.Logger(),
+    defaults: { margin: 10 },
+
+    integrationHeaders : {
+        name : "last-verdict-by-release"
+    },
+
+    onScopedDashboard: false,
+    scopeType: 'release',
+    artifactModels: ['Defect', 'UserStory','TestSet'],
+    artifactFetch: ['ObjectID','Project','FormattedID','Name'],
+    testCaseFetch: ['FormattedID','Name','LastVerdict','ObjectID','WorkProduct','Owner','LastRun'],
+
+    launch: function() {
+        this.logger.log('launch');
+        var context = this.getContext();
+
+        this.onScopedDashboard = this._hasScope();
+        this._addComponents(this.onScopedDashboard);
+
+        this.onTimeboxScopeChange(context.getTimeboxScope() || null);
+    },
+    _hasScope: function() {
+        var context = this.getContext();
+        return context.getTimeboxScope() && context.getTimeboxScope().getType() === this.scopeType;
+    },
+
+    onTimeboxScopeChange: function(timebox){
+        this.logger.log('onTimeboxScopeChange', timebox);
+
+    },
+    getReleaseTimeboxRecord: function(){
+        if (this.onScopedDashboard){
+            return (this.getContext().getTimebox() && this.getContext().getTimebox().getRecord()) || null;
+        }
+        return this.down('rallyreleasecombobox').getRecord() || null;
+    },
+    _addComponents: function(hasTimeboxScope){
+        this.logger.log('_addComponents');
+
+        if (!this.down('#ct-header')){
+            var header = this.add({
+                xtype: 'container',
+                itemId: 'ct-header',
+                layout: {
+                    type: 'hbox'
+                }
+            });
+
+            if (!hasTimeboxScope){
+                header.add({
+                    xtype: 'rallyreleasecombobox'
+                });
+            }
+
+            header.add({
+                xtype: 'rallybutton',
+                text: 'Update',
+                listeners: {
+                    scope: this,
+                    click: this._update
+                }
+            });
+
+            header.add({
+                xtype: 'rallybutton',
+                text: 'Export',
+                listeners: {
+                    scope: this,
+                    click: this._export
+                }
+            });
+        }
+    },
+    _update: function(){
+        this.logger.log('_update', this.getReleaseTimeboxRecord());
+
+        var filters = Ext.create('Rally.data.wsapi.Filter',{
+            property: 'Release.Name',
+            value: this.getReleaseTimeboxRecord().get('Name')
+        });
+
+
+        //Get Artifacts associated with Release so that we have a hash of those
+        Ext.create('Rally.data.wsapi.artifact.Store', {
+            models: this.artifactModels,
+            fetch: this.artifactFetch,
+            filters: filters,
+            sorters: [{
+                property: 'FormattedID',
+                direction: 'ASC'
+            }]
+        }).load({
+            callback: this._fetchTestCases,
+            scope: this
+        });
+        //Get test cases and pull out only ones associated with Artifacts associated with the release.
+
+    },
+    _getTestCaseFilters: function(artifacts){
+        var prefixHash = {};
+
+        _.each(artifacts, function(a){
+            var fid = a.get('FormattedID'),
+                prefix = fid.replace(/[0-9]/g, ""),
+                num = Number(fid.replace(/[^0-9]/g, ""));
+            console.log('pn',prefix, num);
+            if (!prefixHash[prefix]){
+                prefixHash[prefix] = { min: null, max: null};
+            }
+            if (prefixHash[prefix].min === null || prefixHash[prefix].min > num){
+                prefixHash[prefix].min = num;
+            }
+            if (prefixHash[prefix].max === null || prefixHash[prefix].max < num){
+                prefixHash[prefix].max = num;
+            }
+        });
+
+
+        var filters = [];
+        _.each(prefixHash, function(obj, prefix){
+            var filter = Ext.create('Rally.data.wsapi.Filter',{
+                property: 'WorkProduct.FormattedID',
+                operator: '>',
+                value: Ext.String.format('{0}{1}', prefix, obj.min)
+            });
+            filter = filter.and(Ext.create('Rally.data.wsapi.Filter',{
+                property: 'WorkProduct.FormattedID',
+                operator: '<',
+                value: Ext.String.format('{0}{1}', prefix, obj.max)
+            }));
+            filters.push(filter);
+        });
+        filters = Rally.data.wsapi.Filter.or(filters);
+        this.logger.log('_getTestCaseFiltesr', filters.toString());
+        return filters;
+
+    },
+    _fetchTestCases: function(artifacts, operation){
+        this.logger.log('_fetchTestCases', artifacts, operation);
+
+        var formatted_ids = _.map(artifacts, function(a){ return a.get('FormattedID'); });
+        this.logger.log('formattedIds', formatted_ids);
+
+        this.artifactRecords = artifacts;
+
+        var filters = this._getTestCaseFilters(artifacts);
+
+        this.logger.log('artifact filters', filters.toString());
+        Ext.create('Rally.data.wsapi.Store',{
+            model: 'TestCase',
+            fetch: this.testCaseFetch,
+            filters: filters
+
+        }).load({
+            callback: this._buildDisplay,
+            scope: this
+        });
+
+
+
+    },
+    _buildDisplay: function(testCaseRecords, operation){
+        this.logger.log('_buildDisplay', testCaseRecords, operation);
+        this.testCaseRecords = testCaseRecords;
+    },
+    _export: function(){},
+    _loadWsapiRecords: function(config){
+        var deferred = Ext.create('Deft.Deferred');
+        var me = this;
+        var default_config = {
+            model: 'Defect',
+            fetch: ['ObjectID']
+        };
+        this.logger.log("Starting load:",config.model);
+        Ext.create('Rally.data.wsapi.Store', Ext.Object.merge(default_config,config)).load({
+            callback : function(records, operation, successful) {
+                if (successful){
+                    deferred.resolve(records);
+                } else {
+                    me.logger.log("Failed: ", operation);
+                    deferred.reject('Problem loading: ' + operation.error.errors.join('. '));
+                }
+            }
+        });
+        return deferred.promise;
+    },
+
+    getOptions: function() {
+        return [
+            {
+                text: 'About...',
+                handler: this._launchInfo,
+                scope: this
+            }
+        ];
+    },
+    
+    _launchInfo: function() {
+        if ( this.about_dialog ) { this.about_dialog.destroy(); }
+        this.about_dialog = Ext.create('Rally.technicalservices.InfoLink',{});
+    },
+    
+    isExternal: function(){
+        return typeof(this.getAppId()) == 'undefined';
+    },
+    
+    //onSettingsUpdate:  Override
+    onSettingsUpdate: function (settings){
+        this.logger.log('onSettingsUpdate',settings);
+        // Ext.apply(this, settings);
+        this.launch();
+    }
+});
+
+            
+               Rally.launchApp('last-verdict-by-release', {
+                   name: 'Last Verdict By Release'
+               });
+        });
+    </script>
+    
+    <style type="text/css">
+
+.app {
+}
+.tsinfolink {
+    position:absolute;
+    right:0px;
+    width: 14px;
+    height: 14px;
+    border-radius: 7px;
+    text-align: center;
+    color: white;
+    background: #C0C0C0;
+    border-style: solid;
+    border-width: 1px;
+    margin-top: 25px;
+    margin-right: 5px;
+    cursor: pointer;
+}
+    </style>
+
+</head>
+<body></body>
+</html>
