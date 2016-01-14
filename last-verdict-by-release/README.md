@@ -9,6 +9,7 @@ The data in this app includes Test Cases associated with the following items wit
 
 ![ScreenShot](/images/last-verdict-by-release.png)
 
+Export in CSV is available.  
 
 ## Development Notes
 
