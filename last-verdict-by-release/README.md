@@ -1,5 +1,9 @@
 #Last Verdict By Release
 
+App shows test case run coverage and results of the last verdict by release.  
+
+The data in this app includes 
+
 ## Development Notes
 
 ### First Load

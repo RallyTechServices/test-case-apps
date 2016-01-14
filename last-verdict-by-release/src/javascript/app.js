@@ -72,11 +72,16 @@ Ext.define("last-verdict-by-release", {
 
     onTimeboxScopeChange: function(timebox){
         this.logger.log('onTimeboxScopeChange', timebox);
+        if (timebox.type === 'release'){
+            this.getContext().setTimeboxScope(timebox);
+            this._update();
+        }
+
 
     },
     getReleaseTimeboxRecord: function(){
         if (this.onScopedDashboard){
-            return (this.getContext().getTimebox() && this.getContext().getTimebox().getRecord()) || null;
+            return (this.getContext().getTimeboxScope() && this.getContext().getTimeboxScope().getRecord()) || null;
         }
         return this.down('rallyreleasecombobox').getRecord() || null;
     },
@@ -94,27 +99,23 @@ Ext.define("last-verdict-by-release", {
 
             if (!hasTimeboxScope){
                 header.add({
-                    xtype: 'rallyreleasecombobox'
+                    xtype: 'rallyreleasecombobox',
+                    listeners: {
+                        scope: this,
+                        change: this._update
+                    }
                 });
             }
 
-            header.add({
-                xtype: 'rallybutton',
-                text: 'Update',
-                listeners: {
-                    scope: this,
-                    click: this._update
-                }
-            });
+            //header.add({
+            //    xtype: 'rallybutton',
+            //    text: 'Update',
+            //    listeners: {
+            //        scope: this,
+            //        click: this._update
+            //    }
+            //});
 
-            header.add({
-                xtype: 'rallybutton',
-                text: 'Export',
-                listeners: {
-                    scope: this,
-                    click: this._export
-                }
-            });
 
             var tpl = new Rally.technicalservices.ProgressBarTemplate({});
             header.add({
@@ -124,6 +125,16 @@ Ext.define("last-verdict-by-release", {
                 margin: '0 100 0 100',
                 flex: 1
 
+            });
+
+
+            header.add({
+                xtype: 'rallybutton',
+                text: 'Export',
+                listeners: {
+                    scope: this,
+                    click: this._export
+                }
             });
         }
         //if (!this.down('#ct-summary')){
@@ -135,7 +146,15 @@ Ext.define("last-verdict-by-release", {
 
     },
     _update: function(){
+
         this.logger.log('_update', this.getReleaseTimeboxRecord());
+        if (!this.getReleaseTimeboxRecord()){
+            this.down('#ct-summary').update({message: "Please select a Release"});
+            if (this.down('rallygrid')){
+                this.down('rallygrid').destroy();
+            }
+            return;
+        }
 
         var filters = Ext.create('Rally.data.wsapi.Filter',{
             property: 'Release.Name',
@@ -143,7 +162,7 @@ Ext.define("last-verdict-by-release", {
         });
 
 
-        //Get Artifacts associated with Release so that we have a hash of those
+
         Ext.create('Rally.data.wsapi.artifact.Store', {
             models: this.artifactModels,
             fetch: this.artifactFetch,
@@ -156,8 +175,6 @@ Ext.define("last-verdict-by-release", {
             callback: this._fetchTestCases,
             scope: this
         });
-        //Get test cases and pull out only ones associated with Artifacts associated with the release.
-
     },
     _getTestSetPrefix: function(){
         return this.prefixHash['TestSet'];
@@ -270,7 +287,7 @@ Ext.define("last-verdict-by-release", {
     _buildSummaryGrid: function(store, testCaseRecords, operation){
         this.logger.log('_buildDisplay', testCaseRecords, operation, _.map(testCaseRecords, function(tc){ return tc.get('FormattedID'); }));
 
-        var casesRun = _.filter(testCaseRecords, function(tc){ console.log('tc',tc.get('FormattedID'), tc.get('LastVerdict')); return tc.get('LastVerdict')});
+        var casesRun = _.filter(testCaseRecords, function(tc){ return tc.get('LastVerdict')});
         this.logger.log('_mungeData', casesRun.length, testCaseRecords.length);
 
         this.down('#ct-summary').update({casesRun: casesRun.length, totalCases: testCaseRecords.length});
@@ -337,25 +354,30 @@ Ext.define("last-verdict-by-release", {
     _getColumnCfgs: function(){
         return [{
             dataIndex: 'FormattedID',
-            text: 'ID'
+            text: 'ID',
+            flex: 1
         },{
             dataIndex: 'Name',
-            text: 'Test Case'
+            text: 'Test Case',
+            flex: 2
         },{
             dataIndex: 'WorkProduct',
             text: 'Work Item',
             exportRenderer: function(v,m,r){
                 return v && v.FormattedID + ': ' + v.Name || '';
-            }
+            },
+            flex: 2
         },{
             dataIndex: 'LastRun',
-            text: 'Last Tested'
+            text: 'Last Tested',
+            flex: 1
         },{
             dataIndex: 'Owner',
             text: 'Owner',
             renderer: function(v,m,r){
                 return (v && (v.FirstName || '') + ' ' + (v.LastName || '')) || '(No Owner)';
-            }
+            },
+            flex: 1
         }];
     },
     _export: function(){

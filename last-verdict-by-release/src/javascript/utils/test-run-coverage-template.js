@@ -112,7 +112,10 @@ Ext.define('Rally.technicalservices.ProgressBarTemplate', {
                 '{[this.generateLabelTextFn(values)]}',
                 '</div>',
                 '</div>',
+                '<tpl elseif="{message}">',
+                '<div>{message}</div>',
                 '</tpl>'
+
             ];
 
         templateConfig.push(this.config);
