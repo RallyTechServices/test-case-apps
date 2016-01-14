@@ -3,11 +3,11 @@
 <head>
     <title>Last Verdict By Release</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Thu Jan 14 2016 12:14:40 GMT-0800 (PST) -->
+    <!--  Build Date: Thu Jan 14 2016 12:17:27 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Thu Jan 14 2016 12:14:40 GMT-0800 (PST)";
-        var CHECKSUM = 41932075853;
+        var APP_BUILD_DATE = "Thu Jan 14 2016 12:17:27 GMT-0800 (PST)";
+        var CHECKSUM = 41670203208;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -801,7 +801,7 @@ Ext.define('Rally.technicalservices.ProgressBarTemplate', {
      * @cfg {String}
      * define a height if necessary to fit where it's being used
      */
-    height: '30px',
+    height: '20px',
     /**
      * @cfg {String}
      * sometimes it's necessary to name the variable used as the percent done replacement in the template,
@@ -867,9 +867,6 @@ Ext.define('Rally.technicalservices.ProgressBarTemplate', {
             return true;
         },
         getContainerClass: function(recordData) {
-            if (recordData && recordData.FormattedID) {
-                return recordData.FormattedID + '-' + this.percentDoneName;
-            }
             return '';
         },
         getClickableClass: function(){

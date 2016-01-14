@@ -11,7 +11,7 @@ Ext.define('Rally.technicalservices.ProgressBarTemplate', {
      * @cfg {String}
      * define a height if necessary to fit where it's being used
      */
-    height: '30px',
+    height: '20px',
     /**
      * @cfg {String}
      * sometimes it's necessary to name the variable used as the percent done replacement in the template,
@@ -77,9 +77,6 @@ Ext.define('Rally.technicalservices.ProgressBarTemplate', {
             return true;
         },
         getContainerClass: function(recordData) {
-            if (recordData && recordData.FormattedID) {
-                return recordData.FormattedID + '-' + this.percentDoneName;
-            }
             return '';
         },
         getClickableClass: function(){
