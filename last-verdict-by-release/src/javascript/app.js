@@ -12,7 +12,7 @@ Ext.define("last-verdict-by-release", {
     scopeType: 'release',
     artifactModels: ['Defect', 'UserStory','TestSet'],
     artifactFetch: ['ObjectID','Project','FormattedID','Name'],
-    testCaseFetch: ['FormattedID','Name','LastVerdict','ObjectID','WorkProduct','Owner','LastRun'],
+    testCaseFetch: ['FormattedID','Name','LastVerdict','ObjectID','WorkProduct','Owner','LastRun','FirstName','LastName'],
     notTestedText: 'Not Tested',
 
     launch: function() {
@@ -257,7 +257,7 @@ Ext.define("last-verdict-by-release", {
             groupField: 'LastVerdict',
             getGroupString: function(record) {
                 var verdict = record.get('LastVerdict');
-                return verdict || this.notTestedText;
+                return verdict || 'Not Tested';
             }
         });
 
@@ -343,16 +343,31 @@ Ext.define("last-verdict-by-release", {
             text: 'Test Case'
         },{
             dataIndex: 'WorkProduct',
-            text: 'Work Item'
+            text: 'Work Item',
+            exportRenderer: function(v,m,r){
+                return v && v.FormattedID + ': ' + v.Name || '';
+            }
         },{
             dataIndex: 'LastRun',
             text: 'Last Tested'
         },{
             dataIndex: 'Owner',
-            text: 'Owner'
+            text: 'Owner',
+            renderer: function(v,m,r){
+                return (v && (v.FirstName || '') + ' ' + (v.LastName || '')) || '(No Owner)';
+            }
         }];
     },
-    _export: function(){},
+    _export: function(){
+        var file_util = Ext.create('Rally.technicalservices.FileUtilities',{});
+        file_util.getCSVFromGrid(this, this.down('rallygrid')).then({
+            success: function(csv){
+                this.setLoading(false);
+                file_util.saveCSVToFile(csv, 'export.csv');
+            },
+            scope: this
+        });
+    },
     _loadWsapiRecords: function(config){
         var deferred = Ext.create('Deft.Deferred');
         var me = this;
