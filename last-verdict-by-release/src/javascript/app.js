@@ -13,16 +13,58 @@ Ext.define("last-verdict-by-release", {
     artifactModels: ['Defect', 'UserStory','TestSet'],
     artifactFetch: ['ObjectID','Project','FormattedID','Name'],
     testCaseFetch: ['FormattedID','Name','LastVerdict','ObjectID','WorkProduct','Owner','LastRun'],
+    notTestedText: 'Not Tested',
 
     launch: function() {
         this.logger.log('launch');
         var context = this.getContext();
 
-        this.onScopedDashboard = this._hasScope();
-        this._addComponents(this.onScopedDashboard);
+        this._fetchPrefixes().then({
+            success: function(prefixHash){
+                this.logger.log('launch prefix records', prefixHash);
+                this.prefixHash = prefixHash;
+                this.onScopedDashboard = this._hasScope();
+                this._addComponents(this.onScopedDashboard);
 
-        this.onTimeboxScopeChange(context.getTimeboxScope() || null);
+                this.onTimeboxScopeChange(context.getTimeboxScope() || null);
+            },
+            failure: function(msg){},
+            scope: this
+        });
+
     },
+    _fetchPrefixes: function(){
+        var deferred = Ext.create('Deft.Deferred');
+
+        var filters = [{
+            property: 'ElementName',
+            value: 'Defect'
+        },{
+            property: 'ElementName',
+            value: 'HierarchicalRequirement'
+        },{
+            property: 'ElementName',
+            value: 'TestSet'
+        }];
+        filters = Rally.data.wsapi.Filter.or(filters);
+
+        Ext.create('Rally.data.wsapi.Store',{
+            model: 'TypeDefinition',
+            fetch: ['ElementName','DisplayName','IDPrefix'],
+            filters: filters
+        }).load({
+            callback: function(records, operation){
+                var prefixHash = {};
+                _.each(records, function(r){
+                    prefixHash[r.get('ElementName')] = r.get('IDPrefix');
+                });
+                deferred.resolve(prefixHash);
+            },
+            scope: this
+        });
+
+        return deferred;
+     },
     _hasScope: function() {
         var context = this.getContext();
         return context.getTimeboxScope() && context.getTimeboxScope().getType() === this.scopeType;
@@ -73,7 +115,24 @@ Ext.define("last-verdict-by-release", {
                     click: this._export
                 }
             });
+
+            var tpl = new Rally.technicalservices.ProgressBarTemplate({});
+            header.add({
+                xtype: 'container',
+                itemId: 'ct-summary',
+                tpl: tpl,
+                margin: '0 100 0 100',
+                flex: 1
+
+            });
         }
+        //if (!this.down('#ct-summary')){
+        //    this.add({
+        //        xtype: 'container',
+        //        itemId: 'ct-summary',
+        //    });
+        //}
+
     },
     _update: function(){
         this.logger.log('_update', this.getReleaseTimeboxRecord());
@@ -100,72 +159,198 @@ Ext.define("last-verdict-by-release", {
         //Get test cases and pull out only ones associated with Artifacts associated with the release.
 
     },
+    _getTestSetPrefix: function(){
+        return this.prefixHash['TestSet'];
+    },
     _getTestCaseFilters: function(artifacts){
-        var prefixHash = {};
+        var prefixHash = {},
+            testSetPrefix = this._getTestSetPrefix(),
+            filters = [];
 
         _.each(artifacts, function(a){
             var fid = a.get('FormattedID'),
-                prefix = fid.replace(/[0-9]/g, ""),
-                num = Number(fid.replace(/[^0-9]/g, ""));
-            console.log('pn',prefix, num);
-            if (!prefixHash[prefix]){
-                prefixHash[prefix] = { min: null, max: null};
-            }
-            if (prefixHash[prefix].min === null || prefixHash[prefix].min > num){
-                prefixHash[prefix].min = num;
-            }
-            if (prefixHash[prefix].max === null || prefixHash[prefix].max < num){
-                prefixHash[prefix].max = num;
+                prefix = fid.replace(/[0-9]/g, "");
+
+            if (prefix === testSetPrefix){
+                filters.push({
+                    property: 'TestSets.FormattedID',
+                    operator: 'contains',
+                    value: fid
+                });
+            } else {
+                filters.push({
+                    property: 'WorkProduct.FormattedID',
+                    value: fid
+                });
             }
         });
 
 
-        var filters = [];
-        _.each(prefixHash, function(obj, prefix){
-            var filter = Ext.create('Rally.data.wsapi.Filter',{
-                property: 'WorkProduct.FormattedID',
-                operator: '>',
-                value: Ext.String.format('{0}{1}', prefix, obj.min)
-            });
-            filter = filter.and(Ext.create('Rally.data.wsapi.Filter',{
-                property: 'WorkProduct.FormattedID',
-                operator: '<',
-                value: Ext.String.format('{0}{1}', prefix, obj.max)
-            }));
-            filters.push(filter);
-        });
+        //_.each(artifacts, function(a){
+        //    var fid = a.get('FormattedID'),
+        //        prefix = fid.replace(/[0-9]/g, ""),
+        //        num = Number(fid.replace(/[^0-9]/g, ""));
+        //    console.log('pn',prefix, num);
+        //    if (!prefixHash[prefix]){
+        //        prefixHash[prefix] = { min: null, max: null};
+        //    }
+        //    if (prefixHash[prefix].min === null || prefixHash[prefix].min > num){
+        //        prefixHash[prefix].min = num;
+        //    }
+        //    if (prefixHash[prefix].max === null || prefixHash[prefix].max < num){
+        //        prefixHash[prefix].max = num;
+        //    }
+        //});
+        //
+        //
+        //var filters = [];
+        //_.each(prefixHash, function(obj, prefix){
+        //    if (prefix !== this._getTestSetPrefix()){
+        //        var filter = Ext.create('Rally.data.wsapi.Filter',{
+        //            property: 'WorkProduct.FormattedID',
+        //            operator: '>=',
+        //            value: Ext.String.format('{0}{1}', prefix, obj.min)
+        //        });
+        //        filter = filter.and(Ext.create('Rally.data.wsapi.Filter',{
+        //            property: 'WorkProduct.FormattedID',
+        //            operator: '<=',
+        //            value: Ext.String.format('{0}{1}', prefix, obj.max)
+        //        }));
+        //    } else {
+        //        var filter = Ext.create('Rally.data.wsapi.Filter',{
+        //            property: 'TestSets.FormattedID',
+        //            operator: 'contains',
+        //            value: Ext.String.format('{0}{1}', prefix, obj.min)
+        //        });
+        //        filter = filter.and(Ext.create('Rally.data.wsapi.Filter',{
+        //            property: 'WorkProduct.FormattedID',
+        //            operator: '<=',
+        //            value: Ext.String.format('{0}{1}', prefix, obj.max)
+        //        }));
+        //    }
+        //
+        //    filters.push(filter);
+        //});
         filters = Rally.data.wsapi.Filter.or(filters);
-        this.logger.log('_getTestCaseFiltesr', filters.toString());
+        this.logger.log('_getTestCaseFilters', filters.toString());
         return filters;
 
     },
     _fetchTestCases: function(artifacts, operation){
         this.logger.log('_fetchTestCases', artifacts, operation);
 
+
         var formatted_ids = _.map(artifacts, function(a){ return a.get('FormattedID'); });
         this.logger.log('formattedIds', formatted_ids);
 
         this.artifactRecords = artifacts;
 
+        //TODO: check the number of artifacts.  We may want to consider chunking if this is too big....
         var filters = this._getTestCaseFilters(artifacts);
 
         this.logger.log('artifact filters', filters.toString());
-        Ext.create('Rally.data.wsapi.Store',{
+        var store = Ext.create('Rally.data.wsapi.Store', {
             model: 'TestCase',
             fetch: this.testCaseFetch,
-            filters: filters
-
-        }).load({
-            callback: this._buildDisplay,
-            scope: this
+            filters: filters,
+            limit: 'Infinity',
+            groupField: 'LastVerdict',
+            getGroupString: function(record) {
+                var verdict = record.get('LastVerdict');
+                return verdict || this.notTestedText;
+            }
         });
 
+        store.on('load', this._buildSummaryGrid, this);
+
+        this._buildGroupedGrid(store);
 
 
     },
-    _buildDisplay: function(testCaseRecords, operation){
-        this.logger.log('_buildDisplay', testCaseRecords, operation);
-        this.testCaseRecords = testCaseRecords;
+    _buildSummaryGrid: function(store, testCaseRecords, operation){
+        this.logger.log('_buildDisplay', testCaseRecords, operation, _.map(testCaseRecords, function(tc){ return tc.get('FormattedID'); }));
+
+        var casesRun = _.filter(testCaseRecords, function(tc){ console.log('tc',tc.get('FormattedID'), tc.get('LastVerdict')); return tc.get('LastVerdict')});
+        this.logger.log('_mungeData', casesRun.length, testCaseRecords.length);
+
+        this.down('#ct-summary').update({casesRun: casesRun.length, totalCases: testCaseRecords.length});
+
+        //
+        //var store = Ext.create('Rally.data.custom.Store',{
+        //    data: [{
+        //        casesRun: casesRun.length,
+        //        totalCases: testCaseRecords.length,
+        //        percentDone: testCaseRecords.length > 0 ? casesRun.length/testCaseRecords.length : 0
+        //    }]
+        //});
+        //
+        //this.down('#ct-summary').add({
+        //    xtype: 'rallygrid',
+        //    store: store,
+        //    showPagingToolbar: false,
+        //    margin: 50,
+        //    columnCfgs: [{
+        //        dataIndex: 'casesRun',
+        //        text: '# Test Cases Run',
+        //        flex: 1
+        //    },{
+        //        dataIndex: 'totalCases',
+        //        text: '# Test Cases associated with Release',
+        //        flex: 1
+        //    },{
+        //        dataIndex: 'percentDone',
+        //        text: 'Test Run Coverage',
+        //        flex: 1,
+        //        renderer: function(v,m,r){
+        //            if (r){
+        //                return Ext.create('Rally.technicalservices.ProgressBarTemplate',{
+        //                    calculateColorFn: function(values) {
+        //                        if (values.percentDone > .5){
+        //                            return '#8DC63F'
+        //                        } else {
+        //                           return '#FAD200';
+        //                        }
+        //                    }
+        //                }).apply(r.data);
+        //            }
+        //            return value;
+        //        }
+        //    }]
+        //});
+
+    },
+    _buildGroupedGrid: function(store){
+
+        if (this.down('#grouped-grid')){
+            this.down('#grouped-grid').destroy();
+        }
+
+        this.add({
+            xtype: 'rallygrid',
+            store: store,
+            itemId: 'grouped-grid',
+            margin: 10,
+            columnCfgs: this._getColumnCfgs(),
+            features: [{ftype:'grouping'}]
+        });
+    },
+    _getColumnCfgs: function(){
+        return [{
+            dataIndex: 'FormattedID',
+            text: 'ID'
+        },{
+            dataIndex: 'Name',
+            text: 'Test Case'
+        },{
+            dataIndex: 'WorkProduct',
+            text: 'Work Item'
+        },{
+            dataIndex: 'LastRun',
+            text: 'Last Tested'
+        },{
+            dataIndex: 'Owner',
+            text: 'Owner'
+        }];
     },
     _export: function(){},
     _loadWsapiRecords: function(config){
