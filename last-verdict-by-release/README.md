@@ -1,8 +1,14 @@
 #Last Verdict By Release
 
-App shows test case run coverage and results of the last verdict by release.  
+App shows test case run coverage and results of the last verdict by release.  This app can be run on a Release scoped dashboard, or on a dashboard without release scope. 
 
-The data in this app includes 
+The data in this app includes Test Cases associated with the following items within the scope of the app:
+* User Stories associated explicitly with the selected Release Name
+* Defects associated explicitly with the selected Release Name
+* Test Sets associated explicitly with the selected Release Name 
+
+![ScreenShot](/images/last-verdict-by-release.png)
+
 
 ## Development Notes
 
