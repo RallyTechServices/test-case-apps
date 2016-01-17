@@ -12,7 +12,7 @@ Ext.define("last-verdict-by-release", {
     scopeType: 'release',
     artifactModels: ['Defect', 'UserStory','TestSet'],
     artifactFetch: ['ObjectID','Project','FormattedID','Name'],
-    testCaseFetch: ['FormattedID','Name','LastVerdict','ObjectID','WorkProduct','Owner','LastRun','FirstName','LastName'],
+    testCaseFetch: ['FormattedID','Name','LastVerdict','ObjectID','WorkProduct','Owner','LastRun','FirstName','LastName','TestSets:summary[FormattedID]','Method','LastBuild','Project'],
     notTestedText: 'Not Tested',
 
     launch: function() {
@@ -72,7 +72,7 @@ Ext.define("last-verdict-by-release", {
 
     onTimeboxScopeChange: function(timebox){
         this.logger.log('onTimeboxScopeChange', timebox);
-        if (timebox.type === 'release'){
+        if (timebox && timebox.type === 'release'){
             this.getContext().setTimeboxScope(timebox);
             this._update();
         }
@@ -107,16 +107,6 @@ Ext.define("last-verdict-by-release", {
                 });
             }
 
-            //header.add({
-            //    xtype: 'rallybutton',
-            //    text: 'Update',
-            //    listeners: {
-            //        scope: this,
-            //        click: this._update
-            //    }
-            //});
-
-
             var tpl = new Rally.technicalservices.ProgressBarTemplate({});
             header.add({
                 xtype: 'container',
@@ -137,12 +127,6 @@ Ext.define("last-verdict-by-release", {
                 }
             });
         }
-        //if (!this.down('#ct-summary')){
-        //    this.add({
-        //        xtype: 'container',
-        //        itemId: 'ct-summary',
-        //    });
-        //}
 
     },
     _update: function(){
@@ -160,8 +144,6 @@ Ext.define("last-verdict-by-release", {
             property: 'Release.Name',
             value: this.getReleaseTimeboxRecord().get('Name')
         });
-
-
 
         Ext.create('Rally.data.wsapi.artifact.Store', {
             models: this.artifactModels,
@@ -291,50 +273,6 @@ Ext.define("last-verdict-by-release", {
         this.logger.log('_mungeData', casesRun.length, testCaseRecords.length);
 
         this.down('#ct-summary').update({casesRun: casesRun.length, totalCases: testCaseRecords.length});
-
-        //
-        //var store = Ext.create('Rally.data.custom.Store',{
-        //    data: [{
-        //        casesRun: casesRun.length,
-        //        totalCases: testCaseRecords.length,
-        //        percentDone: testCaseRecords.length > 0 ? casesRun.length/testCaseRecords.length : 0
-        //    }]
-        //});
-        //
-        //this.down('#ct-summary').add({
-        //    xtype: 'rallygrid',
-        //    store: store,
-        //    showPagingToolbar: false,
-        //    margin: 50,
-        //    columnCfgs: [{
-        //        dataIndex: 'casesRun',
-        //        text: '# Test Cases Run',
-        //        flex: 1
-        //    },{
-        //        dataIndex: 'totalCases',
-        //        text: '# Test Cases associated with Release',
-        //        flex: 1
-        //    },{
-        //        dataIndex: 'percentDone',
-        //        text: 'Test Run Coverage',
-        //        flex: 1,
-        //        renderer: function(v,m,r){
-        //            if (r){
-        //                return Ext.create('Rally.technicalservices.ProgressBarTemplate',{
-        //                    calculateColorFn: function(values) {
-        //                        if (values.percentDone > .5){
-        //                            return '#8DC63F'
-        //                        } else {
-        //                           return '#FAD200';
-        //                        }
-        //                    }
-        //                }).apply(r.data);
-        //            }
-        //            return value;
-        //        }
-        //    }]
-        //});
-
     },
     _buildGroupedGrid: function(store){
 
@@ -352,6 +290,12 @@ Ext.define("last-verdict-by-release", {
         });
     },
     _getColumnCfgs: function(){
+        var artifact_hash = {};
+        _.each(this.artifactRecords, function(r){
+            artifact_hash[r.get('FormattedID')] = r;
+        });
+
+        this.logger.log('artifactHash', artifact_hash);
         return [{
             dataIndex: 'FormattedID',
             text: 'ID',
@@ -363,8 +307,31 @@ Ext.define("last-verdict-by-release", {
         },{
             dataIndex: 'WorkProduct',
             text: 'Work Item',
-            exportRenderer: function(v,m,r){
-                return v && v.FormattedID + ': ' + v.Name || '';
+            renderer: function(v,m,r){
+
+                var unknownText = "--";
+                if (v){
+                    var rec = artifact_hash[v.FormattedID];
+                    if (rec){
+                        return Ext.String.format('<a href="{0}">{1}</a>: {2}',Rally.nav.Manager.getDetailUrl(rec), v.FormattedID,rec.get('Name'));
+                    }
+                }
+
+                if (r.get('Summary') && r.get('Summary').TestSets){
+
+                    var fids = _.keys(r.get('Summary').TestSets.FormattedID),
+                        testSets = [];
+
+                    for (var i=0; i< fids.length; i++){
+                        if (artifact_hash[fids[i]]){
+                            testSets.push(Ext.String.format('<a href="{0}">{1}</a>: {2}',Rally.nav.Manager.getDetailUrl(artifact_hash[fids[i]]),fids[i],artifact_hash[fids[i]].get('Name')));
+                        }
+                    }
+                    if (testSets.length > 0){
+                        return testSets.join('<br/>');
+                    }
+                }
+                return unknownText;
             },
             flex: 2
         },{
@@ -382,13 +349,116 @@ Ext.define("last-verdict-by-release", {
     },
     _export: function(){
         var file_util = Ext.create('Rally.technicalservices.FileUtilities',{});
-        file_util.getCSVFromGrid(this, this.down('rallygrid')).then({
+
+        file_util.getCSVFromGrid(this, this.down('rallygrid'),this._getExportColumnCfgs()).then({
             success: function(csv){
                 this.setLoading(false);
                 file_util.saveCSVToFile(csv, 'export.csv');
             },
             scope: this
         });
+    },
+    _getExportColumnCfgs: function(){
+        var artifact_hash = {},
+            releaseName = this.getReleaseTimeboxRecord().get('Name');
+
+        _.each(this.artifactRecords, function(r){
+            artifact_hash[r.get('FormattedID')] = r;
+        });
+
+        this.logger.log('artifactHash', artifact_hash);
+        return [{
+            dataIndex: 'LastVerdict',
+            text: 'Last Verdict'
+        },{
+            dataIndex: 'FormattedID',
+            text: 'ID'
+        },{
+            dataIndex: 'Name',
+            text: 'Test Case'
+        },{
+            dataIndex: 'WorkProduct',
+            text: 'Work Item ID',
+            renderer: function(v,m,r){
+
+                var unknownText = "--";
+                if (v && artifact_hash[v.FormattedID]){
+                    return v.FormattedID;
+                }
+
+                if (r.get('Summary') && r.get('Summary').TestSets){
+
+                    var fids = _.keys(r.get('Summary').TestSets.FormattedID),
+                        testSets = [];
+
+                    for (var i=0; i< fids.length; i++){
+                        if (artifact_hash[fids[i]]){
+                            testSets.push(fids[i]);
+                        }
+                    }
+                    if (testSets.length > 0){
+                        return testSets.join(',');
+                    }
+                }
+                return unknownText;
+            }
+        }, {
+            dataIndex: 'WorkProduct',
+            text: 'Work Item Name',
+            renderer: function (v, m, r) {
+
+                var unknownText = "--";
+                if (v) {
+                    var rec = artifact_hash[v.FormattedID];
+                    if (rec) {
+                        return rec.get('Name');
+                    }
+                }
+
+                if (r.get('Summary') && r.get('Summary').TestSets) {
+
+                    var fids = _.keys(r.get('Summary').TestSets.FormattedID),
+                        testSets = [];
+
+                    for (var i = 0; i < fids.length; i++) {
+                        if (artifact_hash[fids[i]]) {
+                            testSets.push(artifact_hash[fids[i]].get('Name'));
+                        }
+                    }
+                    if (testSets.length > 0) {
+                        return testSets.join(',');
+                    }
+                }
+                return unknownText;
+            }
+        },{
+            dataIndex: 'LastRun',
+            text: 'Last Tested'
+        },{
+            dataIndex: 'Owner',
+            text: 'Owner',
+            renderer: function(v,m,r){
+                return (v && (v.FirstName || '') + ' ' + (v.LastName || '')) || '(No Owner)';
+            }
+        },{
+            dataIndex: 'Project',
+            text: 'Project',
+            renderer: function(v,m,r){
+                return v && v.Name || '';
+            }
+        },{
+            dataIndex: 'Release',
+            text: 'Release Name',
+            renderer: function(v,m,r){
+                return releaseName;
+            }
+        },{
+            dataIndex: 'LastBuild',
+            text: 'Last Build'
+        },{
+            dataIndex: 'Method',
+            text: 'Method'
+        }];
     },
     _loadWsapiRecords: function(config){
         var deferred = Ext.create('Deft.Deferred');
