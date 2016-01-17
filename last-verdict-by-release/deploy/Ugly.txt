@@ -3,10 +3,10 @@
 <head>
     <title>Last Verdict By Release</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Thu Jan 14 2016 12:46:46 GMT-0800 (PST) -->
+    <!--  Build Date: Sun Jan 17 2016 07:32:01 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Thu Jan 14 2016 12:46:46 GMT-0800 (PST)";
+        var APP_BUILD_DATE = "Sun Jan 17 2016 07:32:01 GMT-0800 (PST)";
         var CHECKSUM = [%= checksum %];
     </script>
     

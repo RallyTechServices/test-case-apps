@@ -7,6 +7,8 @@ The data in this app includes Test Cases associated with the following items wit
 * Defects associated explicitly with the selected Release Name
 * Test Sets associated explicitly with the selected Release Name 
 
+Note:  If a test case is associated with both a work product and test sets that are explicitly associated with the release, then only the work product that the test case is associated with will be shown in the work item column.  
+
 ![ScreenShot](/images/last-verdict-by-release.png)
 
 Export in CSV is available.  
