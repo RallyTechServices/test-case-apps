@@ -73,17 +73,18 @@ Ext.define('Rally.technicalservices.FileUtilities', {
      * will render using your grid renderer.  If you want it to ignore the grid renderer,
      * have the column set _csvIgnoreRender: true
      */
-    getCSVFromGrid:function(app, grid){
+    getCSVFromGrid:function(app, grid, exportColumns){
         var deferred = Ext.create('Deft.Deferred');
 
         var store = Ext.create('Rally.data.wsapi.Store',{
             fetch: grid.getStore().config.fetch,
             filters: grid.getStore().config.filters,
             model: grid.getStore().config.model,
+            limit: 'Infinity',
             pageSize: 200
         });
 
-        var columns = grid.columns;
+        var columns = exportColumns || grid.columns;
         var column_names = [];
         var headers = [];
 
@@ -142,45 +143,51 @@ Ext.define('Rally.technicalservices.FileUtilities', {
             unselectableAttr: "unselectable='on'"
         }
 
+        var rows = [];
         store.loadPage(page, {
             callback: function (records) {
                 var csv = [];
                 app.setLoading(Ext.String.format('Page {0} of {1} loaded',page, total_pages));
                 for (var i = 0; i < records.length; i++) {
                     var record = records[i];
+                    //workaround to deal with duplicates...
+                    if (!Ext.Array.contains(rows, record.get('FormattedID'))) {
+                        rows.push(record.get('FormattedID'))
 
-                    var node_values = [];
-                    Ext.Array.each(columns, function (column) {
-                        if (column.xtype != 'rallyrowactioncolumn') {
-                            if (column.dataIndex) {
-                                var column_name = column.dataIndex;
-                                var display_value = record.get(column_name);
+                        var node_values = [];
+                        Ext.Array.each(columns, function (column) {
+                            if (column.xtype != 'rallyrowactioncolumn') {
+                                if (column.dataIndex) {
+                                    var column_name = column.dataIndex;
+                                    var display_value = record.get(column_name);
 
 
-
-                                if (!column._csvIgnoreRender && (column.renderer || column.exportRenderer)) {
-                                    if (column.exportRenderer) {
-                                        display_value = column.exportRenderer(display_value, mock_meta_data, record, 0, 0, store, grid.getView());
-                                    } else {
-                                        display_value = column.renderer(display_value, mock_meta_data, record, 0, 0, store, grid.getView());
+                                    if (!column._csvIgnoreRender && (column.renderer || column.exportRenderer)) {
+                                        if (column.exportRenderer) {
+                                            display_value = column.exportRenderer(display_value, mock_meta_data, record, 0, 0, store, grid.getView());
+                                        } else {
+                                            display_value = column.renderer(display_value, mock_meta_data, record, 0, 0, store, grid.getView());
+                                        }
                                     }
-                                }
-                                node_values.push(display_value);
-                            } else {
-                                var display_value = null;
-                                if (!column._csvIgnoreRender  && (column.renderer || column.exportRenderer)) {
-                                    if (column.exportRenderer) {
-                                        display_value = column.exportRenderer(display_value, mock_meta_data, record, record, 0, 0, store, grid.getView());
-                                    } else {
-                                        display_value = column.renderer(display_value, mock_meta_data, record, record, 0, 0, store, grid.getView());
-                                    }
+
                                     node_values.push(display_value);
+                                } else {
+                                    var display_value = null;
+                                    if (!column._csvIgnoreRender && (column.renderer || column.exportRenderer)) {
+                                        if (column.exportRenderer) {
+                                            display_value = column.exportRenderer(display_value, mock_meta_data, record, record, 0, 0, store, grid.getView());
+                                        } else {
+                                            display_value = column.renderer(display_value, mock_meta_data, record, record, 0, 0, store, grid.getView());
+                                        }
+                                        node_values.push(display_value);
+                                    }
                                 }
-                            }
 
-                        }
-                    }, this);
-                    csv.push('"' + node_values.join('","') + '"');
+                            }
+                        }, this);
+
+                        csv.push('"' + node_values.join('","') + '"');
+                    }
                 }
                 deferred.resolve(csv);
             },

@@ -12,7 +12,7 @@ Ext.define("last-verdict-by-release", {
     scopeType: 'release',
     artifactModels: ['Defect', 'UserStory','TestSet'],
     artifactFetch: ['ObjectID','Project','FormattedID','Name'],
-    testCaseFetch: ['FormattedID','Name','LastVerdict','ObjectID','WorkProduct','Owner','LastRun','FirstName','LastName','TestSets:summary[FormattedID]'],
+    testCaseFetch: ['FormattedID','Name','LastVerdict','ObjectID','WorkProduct','Owner','LastRun','FirstName','LastName','TestSets:summary[FormattedID]','Method','LastBuild','Project'],
     notTestedText: 'Not Tested',
 
     launch: function() {
@@ -294,6 +294,7 @@ Ext.define("last-verdict-by-release", {
         _.each(this.artifactRecords, function(r){
             artifact_hash[r.get('FormattedID')] = r;
         });
+
         this.logger.log('artifactHash', artifact_hash);
         return [{
             dataIndex: 'FormattedID',
@@ -348,13 +349,116 @@ Ext.define("last-verdict-by-release", {
     },
     _export: function(){
         var file_util = Ext.create('Rally.technicalservices.FileUtilities',{});
-        file_util.getCSVFromGrid(this, this.down('rallygrid')).then({
+
+        file_util.getCSVFromGrid(this, this.down('rallygrid'),this._getExportColumnCfgs()).then({
             success: function(csv){
                 this.setLoading(false);
                 file_util.saveCSVToFile(csv, 'export.csv');
             },
             scope: this
         });
+    },
+    _getExportColumnCfgs: function(){
+        var artifact_hash = {},
+            releaseName = this.getReleaseTimeboxRecord().get('Name');
+
+        _.each(this.artifactRecords, function(r){
+            artifact_hash[r.get('FormattedID')] = r;
+        });
+
+        this.logger.log('artifactHash', artifact_hash);
+        return [{
+            dataIndex: 'LastVerdict',
+            text: 'Last Verdict'
+        },{
+            dataIndex: 'FormattedID',
+            text: 'ID'
+        },{
+            dataIndex: 'Name',
+            text: 'Test Case'
+        },{
+            dataIndex: 'WorkProduct',
+            text: 'Work Item ID',
+            renderer: function(v,m,r){
+
+                var unknownText = "--";
+                if (v && artifact_hash[v.FormattedID]){
+                    return v.FormattedID;
+                }
+
+                if (r.get('Summary') && r.get('Summary').TestSets){
+
+                    var fids = _.keys(r.get('Summary').TestSets.FormattedID),
+                        testSets = [];
+
+                    for (var i=0; i< fids.length; i++){
+                        if (artifact_hash[fids[i]]){
+                            testSets.push(fids[i]);
+                        }
+                    }
+                    if (testSets.length > 0){
+                        return testSets.join(',');
+                    }
+                }
+                return unknownText;
+            }
+        }, {
+            dataIndex: 'WorkProduct',
+            text: 'Work Item Name',
+            renderer: function (v, m, r) {
+
+                var unknownText = "--";
+                if (v) {
+                    var rec = artifact_hash[v.FormattedID];
+                    if (rec) {
+                        return rec.get('Name');
+                    }
+                }
+
+                if (r.get('Summary') && r.get('Summary').TestSets) {
+
+                    var fids = _.keys(r.get('Summary').TestSets.FormattedID),
+                        testSets = [];
+
+                    for (var i = 0; i < fids.length; i++) {
+                        if (artifact_hash[fids[i]]) {
+                            testSets.push(artifact_hash[fids[i]].get('Name'));
+                        }
+                    }
+                    if (testSets.length > 0) {
+                        return testSets.join(',');
+                    }
+                }
+                return unknownText;
+            }
+        },{
+            dataIndex: 'LastRun',
+            text: 'Last Tested'
+        },{
+            dataIndex: 'Owner',
+            text: 'Owner',
+            renderer: function(v,m,r){
+                return (v && (v.FirstName || '') + ' ' + (v.LastName || '')) || '(No Owner)';
+            }
+        },{
+            dataIndex: 'Project',
+            text: 'Project',
+            renderer: function(v,m,r){
+                return v && v.Name || '';
+            }
+        },{
+            dataIndex: 'Release',
+            text: 'Release Name',
+            renderer: function(v,m,r){
+                return releaseName;
+            }
+        },{
+            dataIndex: 'LastBuild',
+            text: 'Last Build'
+        },{
+            dataIndex: 'Method',
+            text: 'Method'
+        }];
     },
     _loadWsapiRecords: function(config){
         var deferred = Ext.create('Deft.Deferred');
