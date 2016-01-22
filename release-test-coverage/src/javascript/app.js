@@ -12,7 +12,6 @@ Ext.define("release-test-coverage", {
 
     artifactModels: ['Defect', 'UserStory','TestSet'],
     artifactFetch: ['ObjectID','Project','FormattedID','Name','TestCases','ScheduleState','Owner', 'FirstName','LastName','UserName'],
-    testCaseFetch: ['FormattedID','Name','LastVerdict','ObjectID','WorkProduct','Owner','LastRun','FirstName','LastName','TestSets:summary[FormattedID]','Method','LastBuild','Project'],
     notTestedText: 'Not Tested',
 
     chartColors: [ '#2f7ed8', '#8bbc21', '#910000'],
@@ -29,7 +28,7 @@ Ext.define("release-test-coverage", {
     },
     _hasScope: function() {
         var context = this.getContext();
-        return context.getTimeboxScope() && context.getTimeboxScope().getType() === this.scopeType;
+        return context.getTimeboxScope() && context.getTimeboxScope().getType() === 'release';
     },
 
     onTimeboxScopeChange: function(timebox){
@@ -315,9 +314,63 @@ Ext.define("release-test-coverage", {
             flex: 2
         }];
     },
+    _getExportColumnCfgs: function(){
+        var noOwnerText = '(No Owner)',
+            releaseName = this.getReleaseTimeboxRecord().get('Name');
+
+        return [{
+            dataIndex: 'FormattedID',
+            text: 'ID',
+            flex: 1,
+            renderer: function(v,m,r){
+                return v;
+            }
+        }, {
+            dataIndex: 'Name',
+            text: 'Name',
+            flex: 4
+        },{
+            dataIndex: 'ScheduleState',
+            text: 'ScheduleState',
+            flex: 1
+        },{
+            dataIndex: 'Release',
+            text: 'Release',
+            renderer: function(){
+                return releaseName;
+            }
+        },{
+            dataIndex: 'Project',
+            text: 'Project',
+            renderer: function(v,m,r){
+                return r.get('Project') && r.get('Project').Name || '';
+            }
+        },{
+
+            dataIndex: 'ScheduleState',
+            text: 'ScheduleState',
+            flex: 1
+        },{
+            dataIndex: 'Owner',
+            text: 'Owner',
+            renderer: function(v){
+                var ownerName = noOwnerText;
+                if (v){
+                    if (v.FirstName || v.LastName){
+                        ownerName = v.FirstName + ' ' + v.LastName;
+                    } else {
+                        ownerName = v.UserName || noOwnerText;
+                    }
+                }
+                return ownerName;
+
+            },
+            flex: 2
+        }];
+    },
     _export: function(){
         var file_util = Ext.create('Rally.technicalservices.FileUtilities',{});
-        var csv = file_util.getCSVFromData(this, this.down('rallygrid'),this._getColumnCfgs());
+        var csv = file_util.getCSVFromData(this, this.down('rallygrid'),this._getExportColumnCfgs());
         var file_name = Ext.String.format('missing-test-cases-{0}.csv',Rally.util.DateTime.format(new Date(), 'Y-m-d-H-i-s'));
         file_util.saveCSVToFile(csv, file_name );
 
