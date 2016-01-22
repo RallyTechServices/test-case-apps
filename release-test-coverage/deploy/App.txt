@@ -1,0 +1,1315 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Release Test Coverage</title>
+    <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
+    <!--  Build Date: Thu Jan 21 2016 18:11:11 GMT-0700 (MST) -->
+    
+    <script type="text/javascript">
+        var APP_BUILD_DATE = "Thu Jan 21 2016 18:11:11 GMT-0700 (MST)";
+        var CHECKSUM = 39394656705;
+    </script>
+    
+    <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
+
+    <script type="text/javascript">
+        Rally.onReady(function() {
+             
+/* Blob.js
+ * A Blob implementation.
+ * 2014-05-31
+ * 
+ * By Eli Grey, http://eligrey.com
+ * By Devin Samarin, https://github.com/eboyjr
+ * License: X11/MIT
+ *   See https://github.com/eligrey/Blob.js/blob/master/LICENSE.md
+ */
+
+/*global self, unescape */
+/*jslint bitwise: true, regexp: true, confusion: true, es5: true, vars: true, white: true,
+  plusplus: true */
+
+/*! @source http://purl.eligrey.com/github/Blob.js/blob/master/Blob.js */
+
+(function (view) {
+    "use strict";
+
+    view.URL = view.URL || view.webkitURL;
+
+    if (view.Blob && view.URL) {
+        try {
+            new Blob;
+            return;
+        } catch (e) {}
+    }
+
+    // Internally we use a BlobBuilder implementation to base Blob off of
+    // in order to support older browsers that only have BlobBuilder
+    var BlobBuilder = view.BlobBuilder || view.WebKitBlobBuilder || view.MozBlobBuilder || (function(view) {
+        var
+              get_class = function(object) {
+                return Object.prototype.toString.call(object).match(/^\[object\s(.*)\]$/)[1];
+            }
+            , FakeBlobBuilder = function BlobBuilder() {
+                this.data = [];
+            }
+            , FakeBlob = function Blob(data, type, encoding) {
+                this.data = data;
+                this.size = data.length;
+                this.type = type;
+                this.encoding = encoding;
+            }
+            , FBB_proto = FakeBlobBuilder.prototype
+            , FB_proto = FakeBlob.prototype
+            , FileReaderSync = view.FileReaderSync
+            , FileException = function(type) {
+                this.code = this[this.name = type];
+            }
+            , file_ex_codes = (
+                  "NOT_FOUND_ERR SECURITY_ERR ABORT_ERR NOT_READABLE_ERR ENCODING_ERR "
+                + "NO_MODIFICATION_ALLOWED_ERR INVALID_STATE_ERR SYNTAX_ERR"
+            ).split(" ")
+            , file_ex_code = file_ex_codes.length
+            , real_URL = view.URL || view.webkitURL || view
+            , real_create_object_URL = real_URL.createObjectURL
+            , real_revoke_object_URL = real_URL.revokeObjectURL
+            , URL = real_URL
+            , btoa = view.btoa
+            , atob = view.atob
+            
+            , ArrayBuffer = view.ArrayBuffer
+            , Uint8Array = view.Uint8Array
+        ;
+        FakeBlob.fake = FB_proto.fake = true;
+        while (file_ex_code--) {
+            FileException.prototype[file_ex_codes[file_ex_code]] = file_ex_code + 1;
+        }
+        if (!real_URL.createObjectURL) {
+            URL = view.URL = {};
+        }
+        URL.createObjectURL = function(blob) {
+            var
+                  type = blob.type
+                , data_URI_header
+            ;
+            if (type === null) {
+                type = "application/octet-stream";
+            }
+            if (blob instanceof FakeBlob) {
+                data_URI_header = "data:" + type;
+                if (blob.encoding === "base64") {
+                    return data_URI_header + ";base64," + blob.data;
+                } else if (blob.encoding === "URI") {
+                    return data_URI_header + "," + decodeURIComponent(blob.data);
+                } if (btoa) {
+                    return data_URI_header + ";base64," + btoa(blob.data);
+                } else {
+                    return data_URI_header + "," + encodeURIComponent(blob.data);
+                }
+            } else if (real_create_object_URL) {
+                return real_create_object_URL.call(real_URL, blob);
+            }
+        };
+        URL.revokeObjectURL = function(object_URL) {
+            if (object_URL.substring(0, 5) !== "data:" && real_revoke_object_URL) {
+                real_revoke_object_URL.call(real_URL, object_URL);
+            }
+        };
+        FBB_proto.append = function(data/*, endings*/) {
+            var bb = this.data;
+            // decode data to a binary string
+            if (Uint8Array && (data instanceof ArrayBuffer || data instanceof Uint8Array)) {
+                var
+                      str = ""
+                    , buf = new Uint8Array(data)
+                    , i = 0
+                    , buf_len = buf.length
+                ;
+                for (; i < buf_len; i++) {
+                    str += String.fromCharCode(buf[i]);
+                }
+                bb.push(str);
+            } else if (get_class(data) === "Blob" || get_class(data) === "File") {
+                if (FileReaderSync) {
+                    var fr = new FileReaderSync;
+                    bb.push(fr.readAsBinaryString(data));
+                } else {
+                    // async FileReader won't work as BlobBuilder is sync
+                    throw new FileException("NOT_READABLE_ERR");
+                }
+            } else if (data instanceof FakeBlob) {
+                if (data.encoding === "base64" && atob) {
+                    bb.push(atob(data.data));
+                } else if (data.encoding === "URI") {
+                    bb.push(decodeURIComponent(data.data));
+                } else if (data.encoding === "raw") {
+                    bb.push(data.data);
+                }
+            } else {
+                if (typeof data !== "string") {
+                    data += ""; // convert unsupported types to strings
+                }
+                // decode UTF-16 to binary string
+                bb.push(unescape(encodeURIComponent(data)));
+            }
+        };
+        FBB_proto.getBlob = function(type) {
+            if (!arguments.length) {
+                type = null;
+            }
+            return new FakeBlob(this.data.join(""), type, "raw");
+        };
+        FBB_proto.toString = function() {
+            return "[object BlobBuilder]";
+        };
+        FB_proto.slice = function(start, end, type) {
+            var args = arguments.length;
+            if (args < 3) {
+                type = null;
+            }
+            return new FakeBlob(
+                  this.data.slice(start, args > 1 ? end : this.data.length)
+                , type
+                , this.encoding
+            );
+        };
+        FB_proto.toString = function() {
+            return "[object Blob]";
+        };
+        FB_proto.close = function() {
+            this.size = 0;
+            delete this.data;
+        };
+        return FakeBlobBuilder;
+    }(view));
+
+    view.Blob = function Blob(blobParts, options) {
+        var type = options ? (options.type || "") : "";
+        var builder = new BlobBuilder();
+        if (blobParts) {
+            for (var i = 0, len = blobParts.length; i < len; i++) {
+                builder.append(blobParts[i]);
+            }
+        }
+        return builder.getBlob(type);
+    };
+}(typeof self !== "undefined" && self || typeof window !== "undefined" && window || this.content || this));
+/* FileSaver.js
+ *  A saveAs() FileSaver implementation.
+ *  2014-05-27
+ *
+ *  By Eli Grey, http://eligrey.com
+ *  License: X11/MIT
+ *    See https://github.com/eligrey/FileSaver.js/blob/master/LICENSE.md
+ */
+
+/*global self */
+/*jslint bitwise: true, indent: 4, laxbreak: true, laxcomma: true, smarttabs: true, plusplus: true */
+
+/*! @source http://purl.eligrey.com/github/FileSaver.js/blob/master/FileSaver.js */
+
+var saveAs = saveAs
+  // IE 10+ (native saveAs)
+  || (typeof navigator !== "undefined" &&
+      navigator.msSaveOrOpenBlob && navigator.msSaveOrOpenBlob.bind(navigator))
+  // Everyone else
+  || (function(view) {
+    "use strict";
+    // IE <10 is explicitly unsupported
+    if (typeof navigator !== "undefined" &&
+        /MSIE [1-9]\./.test(navigator.userAgent)) {
+        return;
+    }
+    var
+          doc = view.document
+          // only get URL when necessary in case Blob.js hasn't overridden it yet
+        , get_URL = function() {
+            return view.URL || view.webkitURL || view;
+        }
+        , save_link = doc.createElementNS("http://www.w3.org/1999/xhtml", "a")
+        , can_use_save_link = !view.externalHost && "download" in save_link
+        , click = function(node) {
+            var event = doc.createEvent("MouseEvents");
+            event.initMouseEvent(
+                "click", true, false, view, 0, 0, 0, 0, 0
+                , false, false, false, false, 0, null
+            );
+            node.dispatchEvent(event);
+        }
+        , webkit_req_fs = view.webkitRequestFileSystem
+        , req_fs = view.requestFileSystem || webkit_req_fs || view.mozRequestFileSystem
+        , throw_outside = function(ex) {
+            (view.setImmediate || view.setTimeout)(function() {
+                throw ex;
+            }, 0);
+        }
+        , force_saveable_type = "application/octet-stream"
+        , fs_min_size = 0
+        , deletion_queue = []
+        , process_deletion_queue = function() {
+            var i = deletion_queue.length;
+            while (i--) {
+                var file = deletion_queue[i];
+                if (typeof file === "string") { // file is an object URL
+                    get_URL().revokeObjectURL(file);
+                } else { // file is a File
+                    file.remove();
+                }
+            }
+            deletion_queue.length = 0; // clear queue
+        }
+        , dispatch = function(filesaver, event_types, event) {
+            event_types = [].concat(event_types);
+            var i = event_types.length;
+            while (i--) {
+                var listener = filesaver["on" + event_types[i]];
+                if (typeof listener === "function") {
+                    try {
+                        listener.call(filesaver, event || filesaver);
+                    } catch (ex) {
+                        throw_outside(ex);
+                    }
+                }
+            }
+        }
+        , FileSaver = function(blob, name) {
+            // First try a.download, then web filesystem, then object URLs
+            var
+                  filesaver = this
+                , type = blob.type
+                , blob_changed = false
+                , object_url
+                , target_view
+                , get_object_url = function() {
+                    var object_url = get_URL().createObjectURL(blob);
+                    deletion_queue.push(object_url);
+                    return object_url;
+                }
+                , dispatch_all = function() {
+                    dispatch(filesaver, "writestart progress write writeend".split(" "));
+                }
+                // on any filesys errors revert to saving with object URLs
+                , fs_error = function() {
+                    // don't create more object URLs than needed
+                    if (blob_changed || !object_url) {
+                        object_url = get_object_url(blob);
+                    }
+                    if (target_view) {
+                        target_view.location.href = object_url;
+                    } else {
+                        window.open(object_url, "_blank");
+                    }
+                    filesaver.readyState = filesaver.DONE;
+                    dispatch_all();
+                }
+                , abortable = function(func) {
+                    return function() {
+                        if (filesaver.readyState !== filesaver.DONE) {
+                            return func.apply(this, arguments);
+                        }
+                    };
+                }
+                , create_if_not_found = {create: true, exclusive: false}
+                , slice
+            ;
+            filesaver.readyState = filesaver.INIT;
+            if (!name) {
+                name = "download";
+            }
+            if (can_use_save_link) {
+                object_url = get_object_url(blob);
+                save_link.href = object_url;
+                save_link.download = name;
+                click(save_link);
+                filesaver.readyState = filesaver.DONE;
+                dispatch_all();
+                return;
+            }
+            // Object and web filesystem URLs have a problem saving in Google Chrome when
+            // viewed in a tab, so I force save with application/octet-stream
+            // http://code.google.com/p/chromium/issues/detail?id=91158
+            if (view.chrome && type && type !== force_saveable_type) {
+                slice = blob.slice || blob.webkitSlice;
+                blob = slice.call(blob, 0, blob.size, force_saveable_type);
+                blob_changed = true;
+            }
+            // Since I can't be sure that the guessed media type will trigger a download
+            // in WebKit, I append .download to the filename.
+            // https://bugs.webkit.org/show_bug.cgi?id=65440
+            if (webkit_req_fs && name !== "download") {
+                name += ".download";
+            }
+            if (type === force_saveable_type || webkit_req_fs) {
+                target_view = view;
+            }
+            if (!req_fs) {
+                fs_error();
+                return;
+            }
+            fs_min_size += blob.size;
+            req_fs(view.TEMPORARY, fs_min_size, abortable(function(fs) {
+                fs.root.getDirectory("saved", create_if_not_found, abortable(function(dir) {
+                    var save = function() {
+                        dir.getFile(name, create_if_not_found, abortable(function(file) {
+                            file.createWriter(abortable(function(writer) {
+                                writer.onwriteend = function(event) {
+                                    target_view.location.href = file.toURL();
+                                    deletion_queue.push(file);
+                                    filesaver.readyState = filesaver.DONE;
+                                    dispatch(filesaver, "writeend", event);
+                                };
+                                writer.onerror = function() {
+                                    var error = writer.error;
+                                    if (error.code !== error.ABORT_ERR) {
+                                        fs_error();
+                                    }
+                                };
+                                "writestart progress write abort".split(" ").forEach(function(event) {
+                                    writer["on" + event] = filesaver["on" + event];
+                                });
+                                writer.write(blob);
+                                filesaver.abort = function() {
+                                    writer.abort();
+                                    filesaver.readyState = filesaver.DONE;
+                                };
+                                filesaver.readyState = filesaver.WRITING;
+                            }), fs_error);
+                        }), fs_error);
+                    };
+                    dir.getFile(name, {create: false}, abortable(function(file) {
+                        // delete file if it already exists
+                        file.remove();
+                        save();
+                    }), abortable(function(ex) {
+                        if (ex.code === ex.NOT_FOUND_ERR) {
+                            save();
+                        } else {
+                            fs_error();
+                        }
+                    }));
+                }), fs_error);
+            }), fs_error);
+        }
+        , FS_proto = FileSaver.prototype
+        , saveAs = function(blob, name) {
+            return new FileSaver(blob, name);
+        }
+    ;
+    FS_proto.abort = function() {
+        var filesaver = this;
+        filesaver.readyState = filesaver.DONE;
+        dispatch(filesaver, "abort");
+    };
+    FS_proto.readyState = FS_proto.INIT = 0;
+    FS_proto.WRITING = 1;
+    FS_proto.DONE = 2;
+
+    FS_proto.error =
+    FS_proto.onwritestart =
+    FS_proto.onprogress =
+    FS_proto.onwrite =
+    FS_proto.onabort =
+    FS_proto.onerror =
+    FS_proto.onwriteend =
+        null;
+
+    view.addEventListener("unload", process_deletion_queue, false);
+    saveAs.unload = function() {
+        process_deletion_queue();
+        view.removeEventListener("unload", process_deletion_queue, false);
+    };
+    return saveAs;
+}(
+       typeof self !== "undefined" && self
+    || typeof window !== "undefined" && window
+    || this.content
+));
+// `self` is undefined in Firefox for Android content script context
+// while `this` is nsIContentFrameMessageManager
+// with an attribute `content` that corresponds to the window
+
+if (typeof module !== "undefined" && module !== null) {
+  module.exports = saveAs;
+} else if ((typeof define !== "undefined" && define !== null) && (define.amd != null)) {
+  define([], function() {
+    return saveAs;
+  });
+}
+/**
+ * A link that pops up a version dialog box
+ */
+
+Ext.define('Rally.technicalservices.InfoLink',{
+    extend: 'Rally.ui.dialog.Dialog',
+    alias: 'widget.tsinfolink',
+    
+    /**
+     * @cfg {String} informationHtml
+     * Additional text to be displayed on the popup dialog (for exmaple,
+     * to add a description of the app's use or functionality)
+     */
+    informationHtml: null,
+    
+    /**
+     * 
+     * cfg {String} title
+     * The title for the dialog box
+     */
+    title: "Build Information",
+    
+    defaults: { padding: 5, margin: 5 },
+
+    closable: true,
+     
+    draggable: true,
+
+    autoShow: true,
+   
+    width: 350, 
+    
+    initComponent: function() {
+        var id = Ext.id(this);
+        this.title =  "<span class='icon-help'> </span>" + this.title;
+        this.callParent(arguments);
+    },
+    
+    _generateChecksum: function(string){
+        var chk = 0x12345678,
+            i;
+        string = string.replace(/var CHECKSUM = .*;/,"");
+        string = string.replace(/\s/g,"");  //Remove all whitespace from the string.
+        
+        for (i = 0; i < string.length; i++) {
+            chk += (string.charCodeAt(i) * i);
+        }
+    
+        return chk;
+    },
+    
+    _checkChecksum: function(container) {
+        var deferred = Ext.create('Deft.Deferred');
+        console.log("_checkChecksum", container);
+        var me = this;
+        
+        Ext.Ajax.request({
+            url: document.URL,
+            params: {
+                id: 1
+            },
+            success: function (response) {
+                text = response.responseText;
+                if ( CHECKSUM ) {
+                    if ( CHECKSUM !== me._generateChecksum(text) ) {
+                        console.log("Checksums don't match!");
+                        deferred.resolve(false);
+                        return;
+                    }
+                }
+                deferred.resolve(true);
+            }
+        });
+        
+        return deferred.promise;
+    },
+    
+    afterRender: function() {
+        var app = Rally.getApp();
+        
+        if (! app.isExternal() ) {
+                
+            this._checkChecksum(app).then({
+                scope: this,
+                success: function(result){
+                    if ( !result ) {
+                        this.addDocked({
+                            xtype:'container',
+                            cls: 'build-info',
+                            padding: 2,
+                            html:'<span class="icon-warning"> </span>Checksums do not match'
+                        });
+                    }
+                },
+                failure: function(msg){
+                    console.log("oops:",msg);
+                }
+            });
+        } else {
+            this.addDocked({
+                xtype:'container',
+                cls: 'build-info',
+                padding: 2,
+                html:'... Running externally'
+            });
+        }
+        this.callParent(arguments);
+    },
+    
+    beforeRender: function() {
+        var me = this;
+        this.callParent(arguments);
+
+        if (this.informationHtml) {
+            this.addDocked({
+                xtype: 'component',
+                componentCls: 'intro-panel',
+                padding: 2,
+                html: this.informationHtml
+            });
+        }
+        
+        this.addDocked({
+            xtype:'container',
+            cls: 'build-info',
+            padding: 2,
+            html:"This app was created by the Rally Technical Services Team."
+        });
+        
+        if ( APP_BUILD_DATE ) {
+            this.addDocked({
+                xtype:'container',
+                cls: 'build-info',
+                padding: 2,
+                html:'Build date/time: ' + APP_BUILD_DATE
+            });
+        }
+    }
+});
+
+/*
+ */
+Ext.define('Rally.technicalservices.Logger',{
+    constructor: function(config){
+        Ext.apply(this,config);
+    },
+    log: function(args){
+        var timestamp = "[ " + Ext.util.Format.date(new Date(), "Y-m-d H:i:s.u") + " ]";
+        //var output_args = arguments;
+        //output_args.unshift( [ "[ " + timestamp + " ]" ] );
+        //output_args = Ext.Array.push(output_args,arguments);
+        
+        var output_args = [];
+        output_args = Ext.Array.push(output_args,[timestamp]);
+        output_args = Ext.Array.push(output_args, Ext.Array.slice(arguments,0));
+
+        window.console && console.log.apply(console,output_args);
+    }
+
+});
+
+Ext.define('Rally.technicalservices.FileUtilities', {
+    //singleton: true,
+    logger: new Rally.technicalservices.Logger(),
+    saveCSVToFile:function(csv,file_name,type_object){
+            if (type_object == undefined){
+                type_object = {type:'text/csv;charset=utf-8'};
+            }
+            var blob = new Blob([csv],type_object);
+            saveAs(blob,file_name);
+    },
+    saveTextAsFile: function(textToWrite, fileName)
+    {
+        var textFileAsBlob = new Blob([textToWrite], {type:'text/plain'});
+        var fileNameToSaveAs = fileName;
+
+        var downloadLink = document.createElement("a");
+        downloadLink.download = fileNameToSaveAs;
+        downloadLink.innerHTML = "Download File";
+        if (window.webkitURL != null)
+        {
+            // Chrome allows the link to be clicked
+            // without actually adding it to the DOM.
+            downloadLink.href = window.webkitURL.createObjectURL(textFileAsBlob);
+        }
+        else
+        {
+            // Firefox requires the link to be added to the DOM
+            // before it can be clicked.
+            downloadLink.href = window.URL.createObjectURL(textFileAsBlob);
+            downloadLink.onclick = destroyClickedElement;
+            downloadLink.style.display = "none";
+            document.body.appendChild(downloadLink);
+        }
+        downloadLink.click();
+    },
+    destroyClickedElement: function(event)
+    {
+        document.body.removeChild(event.target);
+    },
+    convertDataArrayToCSVText: function(data_array, requestedFieldHash){
+       
+        var text = '';
+        Ext.each(Object.keys(requestedFieldHash), function(key){
+            text += requestedFieldHash[key] + ',';
+        });
+        text = text.replace(/,$/,'\n');
+        
+        Ext.each(data_array, function(d){
+            Ext.each(Object.keys(requestedFieldHash), function(key){
+                if (d[key]){
+                    if (typeof d[key] === 'object'){
+                        if (d[key].FormattedID) {
+                            text += Ext.String.format("\"{0}\",",d[key].FormattedID ); 
+                        } else if (d[key].Name) {
+                            text += Ext.String.format("\"{0}\",",d[key].Name );                    
+                        } else if (!isNaN(Date.parse(d[key]))){
+                            text += Ext.String.format("\"{0}\",",Rally.util.DateTime.formatWithDefaultDateTime(d[key]));
+                        }else {
+                            text += Ext.String.format("\"{0}\",",d[key].toString());
+                        }
+                    } else {
+                        text += Ext.String.format("\"{0}\",",d[key] );                    
+                    }
+                } else {
+                    text += ',';
+                }
+            },this);
+            text = text.replace(/,$/,'\n');
+        },this);
+        return text;
+    },
+    getCSVFromData:function(app, grid, exportColumns){
+         var data = grid.getStore().data.items;
+
+        var columns = exportColumns || grid.columns;
+        var column_names = [];
+        var headers = [];
+
+        Ext.Array.each(columns,function(column){
+            if ( column.dataIndex || column.renderer ) {
+                column_names.push(column.dataIndex);
+                if ( column.csvText ) {
+                    headers.push(column.csvText);
+                } else {
+                    headers.push(column.text);
+                }
+            }
+        });
+
+        var csv = [];
+        csv.push('"' + headers.join('","') + '"');
+        _.each(data, function(item){
+            console.log('item', item);
+            var cell_values = [];
+            _.each(columns, function(c){
+                var cell_value = item.get(c.dataIndex);
+                if (c.renderer || c.exportRenderer) {
+                    if (c.exportRenderer){
+                        cell_value = c.exportRenderer(cell_value, {}, item);
+                    } else {
+                        cell_value = c.renderer(cell_value, {}, item);
+                    }
+
+                }
+                cell_values.push(cell_value);
+            });
+            csv.push('"' + cell_values.join('","') + '"');
+        });
+        return csv.join('\r\n');
+    },
+    loadStorePage: function(app, grid, store, columns, page, total_pages){
+        var deferred = Ext.create('Deft.Deferred');
+        this.logger.log('loadStorePage',page, total_pages);
+
+        var mock_meta_data = {
+            align: "right",
+            classes: [],
+            cellIndex: 9,
+            column: null,
+            columnIndex: 9,
+            innerCls: undefined,
+            recordIndex: 5,
+            rowIndex: 5,
+            style: "",
+            tdAttr: "",
+            tdCls: "x-grid-cell x-grid-td x-grid-cell-headerId-gridcolumn-1029 x-grid-cell-last x-unselectable",
+            unselectableAttr: "unselectable='on'"
+        }
+
+        var rows = [];
+        store.loadPage(page, {
+            callback: function (records) {
+                var csv = [];
+                app.setLoading(Ext.String.format('Page {0} of {1} loaded',page, total_pages));
+                for (var i = 0; i < records.length; i++) {
+                    var record = records[i];
+                    //workaround to deal with duplicates...
+                    if (!Ext.Array.contains(rows, record.get('FormattedID'))) {
+                        rows.push(record.get('FormattedID'))
+
+                        var node_values = [];
+                        Ext.Array.each(columns, function (column) {
+                            if (column.xtype != 'rallyrowactioncolumn') {
+                                if (column.dataIndex) {
+                                    var column_name = column.dataIndex;
+                                    var display_value = record.get(column_name);
+
+
+                                    if (!column._csvIgnoreRender && (column.renderer || column.exportRenderer)) {
+                                        if (column.exportRenderer) {
+                                            display_value = column.exportRenderer(display_value, mock_meta_data, record, 0, 0, store, grid.getView());
+                                        } else {
+                                            display_value = column.renderer(display_value, mock_meta_data, record, 0, 0, store, grid.getView());
+                                        }
+                                    }
+
+                                    node_values.push(display_value);
+                                } else {
+                                    var display_value = null;
+                                    if (!column._csvIgnoreRender && (column.renderer || column.exportRenderer)) {
+                                        if (column.exportRenderer) {
+                                            display_value = column.exportRenderer(display_value, mock_meta_data, record, record, 0, 0, store, grid.getView());
+                                        } else {
+                                            display_value = column.renderer(display_value, mock_meta_data, record, record, 0, 0, store, grid.getView());
+                                        }
+                                        node_values.push(display_value);
+                                    }
+                                }
+
+                            }
+                        }, this);
+
+                        csv.push('"' + node_values.join('","') + '"');
+                    }
+                }
+                deferred.resolve(csv);
+            },
+            scope: this
+        });
+        return deferred;
+    }
+
+});
+Ext.define('Rally.technicalservices.ProgressBarTemplate', {
+    requires: [],
+    extend: 'Ext.XTemplate',
+
+    /**
+     * @cfg {String}
+     * define a width if necessary to fit where it's being used
+     */
+    width: '75%',
+    /**
+     * @cfg {String}
+     * define a height if necessary to fit where it's being used
+     */
+    height: '20px',
+
+    progressCountName: 'hasTestCases',
+    totalCountName: 'totalTestCases',
+
+    /**
+     * @cfg {Function}
+     * A function that should return true to show a triangle in the top right to denote something is missing.
+     * Defaults to:
+     *      function(){ return false; }
+     */
+    showDangerNotificationFn: function() {
+        return false;
+    },
+
+    /**
+     * @cfg {Function} (required)
+     * A function that returns the color for the percent done bar in hex
+     */
+    calculateColorFn: function(values) {
+        if (this.calculatePercent(values) > 50){
+            return '#8DC63F'
+        } else {
+            return '#FAD200';
+        }
+    },
+    /**
+     * @cfg {Boolean} (optional)
+     * A boolean that indicates whether the progress bar is clickable
+     */
+    isClickable: false,
+
+    /**
+     * @cfg {Boolean}
+     * If the percent done is 0%, do not show the bar at all
+     */
+    showOnlyIfInProgress: false,
+
+    /**
+     * @cfg {Function}
+     * A function that returns the text to show in the progress bar.
+     * Defaults to a function that returns the percentage complete.
+     */
+    generateLabelTextFn: function (recordData) {
+        return Ext.String.format('<b>{2}%</b> of work items have test cases ({0} / {1})', recordData[this.progressCountName], recordData[this.totalCountName], this.calculatePercent(recordData));
+    },
+
+    config: {
+        shouldShowPercentDone: function(recordData) {
+
+            var value = recordData[this.totalCountName];
+            if (_.isString(value)) {
+                value = +value;
+            }
+            if(!Ext.isNumber(value)){
+                return false;
+            }
+            return true;
+        },
+        getContainerClass: function(recordData) {
+            return '';
+        },
+        getClickableClass: function(){
+            return this.isClickable ? 'clickable' : '';
+        },
+        getDimensionStyle: function(){
+            return 'width: ' + this.width + '; height: ' + this.height + '; line-height: ' + this.height + ';display: inline-block';
+        },
+        calculateWidth: function (recordData) {
+            var percentDone = this.calculatePercent(recordData);
+            return percentDone > 100 ? '100%' : percentDone + '%';
+        },
+        calculatePercent: function (recordData) {
+
+            if (recordData[this.totalCountName] && recordData[this.totalCountName] > 0){
+                var percentDone = (recordData[this.progressCountName] || 0) / recordData[this.totalCountName];
+                return Math.round(percentDone * 100);
+            }
+            return 0;
+
+        }
+    },
+
+    constructor: function(config) {
+        var templateConfig = config && config.template || [
+                '<tpl if="this.shouldShowPercentDone(values)">',
+                '<div class="progress-bar-container field-{[this.percentDoneName]} {[this.getClickableClass()]} {[this.getContainerClass(values)]}" style="{[this.getDimensionStyle()]}">',
+                '<div class="rly-progress-bar" style="background-color: {[this.calculateColorFn(values)]}; width: {[this.calculateWidth(values)]}; "></div>',
+                '<tpl if="this.showDangerNotificationFn(values)">',
+                '<div class="progress-bar-danger-notification"></div>',
+                '</tpl>',
+                '<div class="progress-bar-label">',
+                '{[this.generateLabelTextFn(values)]}',
+                '</div>',
+                '</div>',
+                '<tpl elseif="{message}">',
+                '<div>{message}</div>',
+                '</tpl>'
+
+            ];
+
+        templateConfig.push(this.config);
+        templateConfig.push(config);
+
+        return this.callParent(templateConfig);
+    }
+});
+Ext.define("release-test-coverage", {
+    extend: 'Rally.app.App',
+    componentCls: 'app',
+    logger: new Rally.technicalservices.Logger(),
+    defaults: { margin: 10 },
+
+    integrationHeaders : {
+        name : "release-test-coverage"
+    },
+
+    onScopedDashboard: false,
+
+    artifactModels: ['Defect', 'UserStory','TestSet'],
+    artifactFetch: ['ObjectID','Project','FormattedID','Name','TestCases','ScheduleState','Owner', 'FirstName','LastName','UserName'],
+    testCaseFetch: ['FormattedID','Name','LastVerdict','ObjectID','WorkProduct','Owner','LastRun','FirstName','LastName','TestSets:summary[FormattedID]','Method','LastBuild','Project'],
+    notTestedText: 'Not Tested',
+
+    chartColors: [ '#2f7ed8', '#8bbc21', '#910000'],
+
+
+    launch: function() {
+        this.logger.log('launch');
+        var context = this.getContext();
+
+        this.onScopedDashboard = this._hasScope();
+        this._addComponents(this.onScopedDashboard);
+
+        this.onTimeboxScopeChange(context.getTimeboxScope() || null);
+    },
+    _hasScope: function() {
+        var context = this.getContext();
+        return context.getTimeboxScope() && context.getTimeboxScope().getType() === this.scopeType;
+    },
+
+    onTimeboxScopeChange: function(timebox){
+        this.logger.log('onTimeboxScopeChange', timebox);
+        if (timebox && timebox.type === 'release'){
+            this.getContext().setTimeboxScope(timebox);
+            this._update();
+        }
+    },
+    getReleaseTimeboxRecord: function(){
+        if (this.onScopedDashboard){
+            return (this.getContext().getTimeboxScope() && this.getContext().getTimeboxScope().getRecord()) || null;
+        }
+        return this.down('rallyreleasecombobox').getRecord() || null;
+    },
+    _addComponents: function(hasTimeboxScope){
+        this.logger.log('_addComponents');
+
+        if (!this.down('#ct-header')){
+            var header = this.add({
+                xtype: 'container',
+                itemId: 'ct-header',
+                layout: {
+                    type: 'hbox'
+                }
+            });
+
+            if (!hasTimeboxScope){
+                header.add({
+                    xtype: 'rallyreleasecombobox',
+                    listeners: {
+                        scope: this,
+                        change: this._update
+                    }
+                });
+            }
+
+            var tpl = new Ext.XTemplate('<div class="coverageTitle"><b>{workItemsCoveragePercent} %</b> of work items have test coverage ({workItemsCoverage} / {workItemsTotal})</div>',
+                            '<div class="tslegend" style="background-color:#8bbc21;">&nbsp;&nbsp;</div><div class="tslegendtext">&nbsp;&nbsp;User Stories</div><span class="tslegendspacer">&nbsp;</span></div>',
+                '<div class="tslegend" style="background-color:#c42525">&nbsp;&nbsp;</div><div class="tslegendtext">&nbsp;&nbsp;Defects</div><span class="tslegendspacer">&nbsp;</span></div>',
+                '<div class="tslegend" style="background-color:#2f7ed8">&nbsp;&nbsp;</div><div class="tslegendtext">&nbsp;&nbsp;TestSets</div><span class="tslegendspacer">&nbsp;</span></div>',
+                  '<div class="tslegend" style="background-color:#ccc">&nbsp;&nbsp;</div><div class="tslegendtext">&nbsp;&nbsp;No Coverage</div><span class="tslegendspacer">&nbsp;</span></div>'
+
+            );
+
+            header.add({
+                xtype: 'container',
+                itemId: 'ct-summary',
+                tpl: tpl,
+                margin: '0 100 0 75',
+                flex: 1
+
+            });
+
+
+
+            header.add({
+                xtype: 'rallybutton',
+                text: 'Export',
+                listeners: {
+                    scope: this,
+                    click: this._export
+                }
+            });
+        }
+
+    },
+    _update: function(){
+
+        this.logger.log('_update', this.getReleaseTimeboxRecord());
+        if (!this.getReleaseTimeboxRecord()){
+            this.down('#ct-summary').update({message: "Please select a Release"});
+            if (this.down('rallygrid')){
+                this.down('rallygrid').destroy();
+            }
+            return;
+        }
+
+        var filters = Ext.create('Rally.data.wsapi.Filter',{
+            property: 'Release.Name',
+            value: this.getReleaseTimeboxRecord().get('Name')
+        });
+
+        var store = Ext.create('Rally.data.wsapi.artifact.Store', {
+            models: this.artifactModels,
+            fetch: this.artifactFetch,
+            filters: filters,
+            sorters: [{
+                property: 'FormattedID',
+                direction: 'ASC'
+            }]
+        }).load({
+            callback: this._processData,
+            scope: this
+        });
+    },
+    _processData: function(records, operation, success){
+        this.logger.log('_updateDisplay', records);
+
+        var missingTestCases = [],
+            totalCount = {
+                hierarchicalrequirement: 0,
+                defect: 0,
+                testset: 0
+            },
+            hasTestCasesCount = {
+                hierarchicalrequirement: 0,
+                defect: 0,
+                testset: 0
+            };
+
+        _.each(records, function(r){
+            var type = r.get('_type').toLowerCase();
+            totalCount[type]++;
+            if (!(r.get('TestCases') &&  r.get('TestCases').Count > 0)){
+                missingTestCases.push(r);
+            } else {
+                hasTestCasesCount[type]++;
+            }
+        });
+
+
+        this.logger.log('totalCount, hasTestCasesCount, missingTestCases, totalCount', totalCount, hasTestCasesCount, missingTestCases.length, records.length);
+
+        var totalHasTestCasesCount = Ext.Array.sum(_.values(hasTestCasesCount));
+        this._buildSummary(totalHasTestCasesCount, records.length);
+
+        this._buildChart(hasTestCasesCount, totalCount);
+
+        this._buildMissingTestCasesGrid(missingTestCases);
+    },
+    _buildChart: function(hasTestCasesCountHash, totalCountHash){
+        this.logger.log('_buildChart');
+
+            var categories = ['User Stories', 'Defects', 'TestSets'],
+            series = [{
+                name: 'w/o Coverage',
+                data: [{y: totalCountHash.hierarchicalrequirement - hasTestCasesCountHash.hierarchicalrequirement, color: '#ccc', borderColor: '#ccc'}, {y:totalCountHash.defect - hasTestCasesCountHash.defect, color: '#ccc', borderColor: '#ccc'},{y:totalCountHash.testset - hasTestCasesCountHash.testset, color: '#ccc', borderColor: '#ccc'}]
+            },{
+                name: 'w/ Coverage',
+                data: [{y: hasTestCasesCountHash.hierarchicalrequirement, color: '#8bbc21', borderColor: '#8bbc21'}, {y: hasTestCasesCountHash.defect, color: '#c42525', borderColor: '#c42525'},{y: hasTestCasesCountHash.testset, color: '#2f7ed8', borderColor: '#2f7ed8'}]
+
+            }];
+
+           if (this.down('#summary-chart')){
+                this.down('#summary-chart').destroy();
+            }
+            var chart = this.add({
+                xtype: 'rallychart',
+                chartColors: ['#CCC', '#c42525','#8bbc21','2f7ed8'],
+                itemId: 'summary-chart',
+                loadMask: false,
+                margin: 25,
+                height: 200,
+                chartData: {
+                    series: series,
+                    categories: categories
+                },
+                chartConfig: {
+                    chartColors: ['#CCC', '#2f7ed8'],
+                    chart: {
+                        type: 'column'
+                    },
+                    title: {
+                        text: null
+                    },
+                    xAxis: {
+                        categories: categories
+                    },
+                    yAxis: {
+                        min: 0,
+                        title: {
+                            text: 'Total Work Items'
+                        },
+                        stackLabels: {
+                            enabled: true,
+                            style: {
+                                fontWeight: 'bold',
+                                color: 'white'
+                            }
+                        }
+                    },
+                    legend: {
+                        enabled: false,
+                        align: 'right',
+                        backgroundColor: 'white',
+                        borderColor: '#CCC',
+                        borderWidth: 1,
+                        shadow: false,
+                        align: 'right',
+                        verticalAlign: 'center',
+                        layout: 'vertical',
+                        floating: false
+                    },
+                    tooltip: {
+                        headerFormat: '<b>{point.x}</b><br/>',
+                        pointFormat: '{point.y} of {point.stackTotal} {series.name} (<b>{point.percentage::.1f} %</b>)</br>'
+                    },
+                    plotOptions: {
+                        series: {
+                            //borderColor: '#303030',
+                            pointWidth: 30
+                        },
+                        column: {
+                            stacking: 'normal',
+                            dataLabels: {
+                                enabled: false
+                            }
+                        }
+                    }
+                }
+            });
+
+
+
+
+
+    },
+    _buildMissingTestCasesGrid: function(records){
+        this.logger.log('_buildMissingTestCasesGrid');
+
+        if (this.down('#missing-grid')){
+            this.down('#missing-grid').destroy();
+        }
+
+        this.add({
+            xtype: 'rallygrid',
+            store: Ext.create('Rally.data.custom.Store',{
+                data: records,
+                pageSize: records.length
+            }),
+            itemId: 'missing-grid',
+            margin: 25,
+            columnCfgs: this._getColumnCfgs(),
+            showPagingToolbar: false
+        });
+
+        console.log('store',this.down('rallygrid').getStore());
+    },
+    _buildSummary: function(hasTestCaseCount, totalCount){
+        this.logger.log('_buildDisplay', hasTestCaseCount, totalCount);
+
+        var pct = totalCount > 0 ? Math.round(hasTestCaseCount/totalCount * 100) : 0;
+        this.down('#ct-summary').update({workItemsCoveragePercent: pct, workItemsCoverage: hasTestCaseCount, workItemsTotal: totalCount});
+    },
+    _getColumnCfgs: function(){
+        var noOwnerText = '(No Owner)';
+        return [{
+            dataIndex: 'FormattedID',
+            text: 'ID',
+            flex: 1,
+            renderer: function(v,m,r){
+                if (r){
+                    return Ext.String.format('<a href="{0}">{1}</a>',Rally.nav.Manager.getDetailUrl(r), v,r.get('Name'));
+                }
+            },
+            exportRenderer: function(v,m,r){
+                return v;
+            }
+        }, {
+            dataIndex: 'Name',
+            text: 'Name',
+            flex: 4
+        },{
+            dataIndex: 'ScheduleState',
+            text: 'ScheduleState',
+            flex: 1
+        },{
+            dataIndex: 'Owner',
+            text: 'Owner',
+            renderer: function(v){
+                var ownerName = noOwnerText;
+                if (v){
+                    if (v.FirstName || v.LastName){
+                        ownerName = v.FirstName + ' ' + v.LastName;
+                    } else {
+                        ownerName = v.UserName || noOwnerText;
+                    }
+                }
+                return ownerName;
+
+            },
+            flex: 2
+        }];
+    },
+    _export: function(){
+        var file_util = Ext.create('Rally.technicalservices.FileUtilities',{});
+        var csv = file_util.getCSVFromData(this, this.down('rallygrid'),this._getColumnCfgs());
+        var file_name = Ext.String.format('missing-test-cases-{0}.csv',Rally.util.DateTime.format(new Date(), 'Y-m-d-H-i-s'));
+        file_util.saveCSVToFile(csv, file_name );
+
+    },
+
+    getOptions: function() {
+        return [
+            {
+                text: 'About...',
+                handler: this._launchInfo,
+                scope: this
+            }
+        ];
+    },
+
+    _launchInfo: function() {
+        if ( this.about_dialog ) { this.about_dialog.destroy(); }
+        this.about_dialog = Ext.create('Rally.technicalservices.InfoLink',{});
+    },
+
+    isExternal: function(){
+        return typeof(this.getAppId()) == 'undefined';
+    },
+
+    //onSettingsUpdate:  Override
+    onSettingsUpdate: function (settings){
+        this.logger.log('onSettingsUpdate',settings);
+        // Ext.apply(this, settings);
+        this.launch();
+    }
+});
+
+            
+               Rally.launchApp('release-test-coverage', {
+                   name: 'Release Test Coverage'
+               });
+        });
+    </script>
+    
+    <style type="text/css">
+
+.app {
+}
+.tsinfolink {
+    position:absolute;
+    right:0px;
+    width: 14px;
+    height: 14px;
+    border-radius: 7px;
+    text-align: center;
+    color: white;
+    background: #C0C0C0;
+    border-style: solid;
+    border-width: 1px;
+    margin-top: 25px;
+    margin-right: 5px;
+    cursor: pointer;
+}
+
+.coverageTitle {
+    color: #222222;
+    font-family: ProximaNovaSemiBold,Helvetica,Arial;
+    font-size: 16px;
+    display: inline-block;
+    margin-left: 5px;
+    margin-right: 25px;
+}
+
+.tslegend {
+    width: 14px;
+    height: 14px;
+    border-radius: 3px;
+    text-align: center;
+    color: white;
+    border-style: solid;
+    border-width: 1px;
+    display: inline-block;
+}
+
+.tslegendtext {
+    font-family: ProximaNova,Helvetica,Arial;
+    font-size: '12px'!important;
+    color: #274b6d;
+    display: inline
+}
+.tslegendspacer {
+    padding: 5px;
+    display: inline;
+}
+    </style>
+
+</head>
+<body></body>
+</html>

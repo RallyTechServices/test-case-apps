@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Release Test Coverage</title>
+    <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
+    <!--  Build Date: Thu Jan 21 2016 18:11:11 GMT-0700 (MST) -->
+    
+    <script type="text/javascript">
+        var APP_BUILD_DATE = "Thu Jan 21 2016 18:11:11 GMT-0700 (MST)";
+        var CHECKSUM = [%= checksum %];
+    </script>
+    
+    <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
+
+    <script type="text/javascript">
+        Rally.onReady(function() {
+            
+            
+               Rally.launchApp('release-test-coverage', {
+                   name: 'Release Test Coverage'
+               });
+        });
+    </script>
+    
+    <style type="text/css">
+
+.app {
+}
+.tsinfolink {
+    position:absolute;
+    right:0px;
+    width: 14px;
+    height: 14px;
+    border-radius: 7px;
+    text-align: center;
+    color: white;
+    background: #C0C0C0;
+    border-style: solid;
+    border-width: 1px;
+    margin-top: 25px;
+    margin-right: 5px;
+    cursor: pointer;
+}
+
+.coverageTitle {
+    color: #222222;
+    font-family: ProximaNovaSemiBold,Helvetica,Arial;
+    font-size: 16px;
+    display: inline-block;
+    margin-left: 5px;
+    margin-right: 25px;
+}
+
+.tslegend {
+    width: 14px;
+    height: 14px;
+    border-radius: 3px;
+    text-align: center;
+    color: white;
+    border-style: solid;
+    border-width: 1px;
+    display: inline-block;
+}
+
+.tslegendtext {
+    font-family: ProximaNova,Helvetica,Arial;
+    font-size: '12px'!important;
+    color: #274b6d;
+    display: inline
+}
+.tslegendspacer {
+    padding: 5px;
+    display: inline;
+}
+    </style>
+
+</head>
+<body></body>
+</html>

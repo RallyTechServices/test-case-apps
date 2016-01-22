@@ -1,0 +1,7 @@
+{
+    "name": "Release Test Coverage",
+    "className": "release-test-coverage",
+    "server": "https://demo-west.rallydev.com",
+    "sdk": "2.0",
+    "apiKey": "_PUT_APIKEY_HERE_"
+}
