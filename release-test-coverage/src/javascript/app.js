@@ -183,6 +183,7 @@ Ext.define("release-test-coverage", {
                 itemId: 'summary-chart',
                 loadMask: false,
                 margin: 25,
+                height: 200,
                 chartData: {
                     series: series,
                     categories: categories

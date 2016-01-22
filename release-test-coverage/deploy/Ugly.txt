@@ -3,10 +3,10 @@
 <head>
     <title>Release Test Coverage</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Thu Jan 21 2016 18:05:10 GMT-0700 (MST) -->
+    <!--  Build Date: Thu Jan 21 2016 18:11:11 GMT-0700 (MST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Thu Jan 21 2016 18:05:10 GMT-0700 (MST)";
+        var APP_BUILD_DATE = "Thu Jan 21 2016 18:11:11 GMT-0700 (MST)";
         var CHECKSUM = [%= checksum %];
     </script>
     

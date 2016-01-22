@@ -1,5 +1,20 @@
 #Release Test Coverage
 
+App shows test case coverage for work items by release.  This app can be run on a Release scoped dashboard, or on a dashboard without release scope. 
+
+The data in this app includes the following work items within the scope of the app:
+* User Stories associated explicitly with the selected Release Name
+* Defects associated explicitly with the selected Release Name
+* Test Sets associated explicitly with the selected Release Name 
+
+The chart shows a graph of work items that have at least one test case associated with them vs ones that do not.  
+
+The grid underneath the chart lists the work items associated with the release that do not have associated test cases.  
+
+![ScreenShot](/images/release-test-coverage.png)
+
+Export in CSV is available.  
+
 ## Development Notes
 
 ### First Load
