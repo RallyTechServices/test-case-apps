@@ -28,7 +28,7 @@ Ext.define("release-test-coverage", {
     },
     _hasScope: function() {
         var context = this.getContext();
-        return context.getTimeboxScope() && context.getTimeboxScope().getType() === this.scopeType;
+        return context.getTimeboxScope() && context.getTimeboxScope().getType() === 'release';
     },
 
     onTimeboxScopeChange: function(timebox){
