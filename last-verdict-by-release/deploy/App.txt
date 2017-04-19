@@ -3,11 +3,11 @@
 <head>
     <title>Last Verdict By Release</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Sun Jan 17 2016 08:36:50 GMT-0800 (PST) -->
+    <!--  Build Date: Wed Apr 19 2017 13:58:53 GMT-0600 (MDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Sun Jan 17 2016 08:36:50 GMT-0800 (PST)";
-        var CHECKSUM = 46942589898;
+        var APP_BUILD_DATE = "Wed Apr 19 2017 13:58:53 GMT-0600 (MDT)";
+        var CHECKSUM = 45586994632;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -1072,6 +1072,7 @@ Ext.define("last-verdict-by-release", {
             models: this.artifactModels,
             fetch: this.artifactFetch,
             filters: filters,
+            enablePostGet: true,
             sorters: [{
                 property: 'FormattedID',
                 direction: 'ASC'
@@ -1176,6 +1177,7 @@ Ext.define("last-verdict-by-release", {
             fetch: this.testCaseFetch,
             filters: filters,
             limit: 'Infinity',
+            enablePostGet: true,
             groupField: 'LastVerdict',
             getGroupString: function(record) {
                 var verdict = record.get('LastVerdict');
@@ -1382,26 +1384,6 @@ Ext.define("last-verdict-by-release", {
             dataIndex: 'Method',
             text: 'Method'
         }];
-    },
-    _loadWsapiRecords: function(config){
-        var deferred = Ext.create('Deft.Deferred');
-        var me = this;
-        var default_config = {
-            model: 'Defect',
-            fetch: ['ObjectID']
-        };
-        this.logger.log("Starting load:",config.model);
-        Ext.create('Rally.data.wsapi.Store', Ext.Object.merge(default_config,config)).load({
-            callback : function(records, operation, successful) {
-                if (successful){
-                    deferred.resolve(records);
-                } else {
-                    me.logger.log("Failed: ", operation);
-                    deferred.reject('Problem loading: ' + operation.error.errors.join('. '));
-                }
-            }
-        });
-        return deferred.promise;
     },
 
     getOptions: function() {

@@ -149,6 +149,7 @@ Ext.define("last-verdict-by-release", {
             models: this.artifactModels,
             fetch: this.artifactFetch,
             filters: filters,
+            enablePostGet: true,
             sorters: [{
                 property: 'FormattedID',
                 direction: 'ASC'
@@ -253,6 +254,7 @@ Ext.define("last-verdict-by-release", {
             fetch: this.testCaseFetch,
             filters: filters,
             limit: 'Infinity',
+            enablePostGet: true,
             groupField: 'LastVerdict',
             getGroupString: function(record) {
                 var verdict = record.get('LastVerdict');
