@@ -240,6 +240,13 @@ Ext.define("last-verdict-by-release", {
         if (this.down('#grouped-grid')){
             this.down('#grouped-grid').destroy();
         }
+        this.logger.log('_buildGroupedGrid', store);
+
+        if (store && store.totalCount > 2000){
+            Rally.ui.notify.Notifier.showWarning({
+                message: Ext.String.format("{0} Test Cases were found, but only 2000 are shown.", store.totalCount)
+            });
+        }
 
         this.add({
             xtype: 'rallygrid',
