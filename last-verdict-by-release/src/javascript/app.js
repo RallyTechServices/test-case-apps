@@ -253,7 +253,7 @@ Ext.define("last-verdict-by-release", {
             model: 'TestCase',
             fetch: this.testCaseFetch,
             filters: filters,
-            limit: 'Infinity',
+          //  limit: 'Infinity',
             enablePostGet: true,
             groupField: 'LastVerdict',
             getGroupString: function(record) {
@@ -288,7 +288,8 @@ Ext.define("last-verdict-by-release", {
             itemId: 'grouped-grid',
             margin: 10,
             columnCfgs: this._getColumnCfgs(),
-            features: [{ftype:'grouping'}]
+            features: [{ftype:'grouping'}],
+
         });
     },
     _getColumnCfgs: function(){
