@@ -9,6 +9,8 @@ The data in this app includes Test Cases associated with the following items wit
 
 Note:  If a test case is associated with both a work product and test sets that are explicitly associated with the release, then only the work product that the test case is associated with will be shown in the work item column.  
 
+Note:  This app only supports up to 2000 test cases per Release.  This app would need to be updated to show more.  
+
 ![ScreenShot](/images/last-verdict-by-release.png)
 
 Export in CSV is available.  

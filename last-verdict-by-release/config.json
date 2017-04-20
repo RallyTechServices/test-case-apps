@@ -2,6 +2,6 @@
     "name": "Last Verdict By Release",
     "className": "last-verdict-by-release",
     "server": "https://demo-west.rallydev.com",
-    "sdk": "2.0",
+    "sdk": "2.1",
     "apiKey": "_PUT_APIKEY_HERE_"
 }
