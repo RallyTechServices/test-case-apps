@@ -3,14 +3,14 @@
 <head>
     <title>Last Verdict By Release</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Thu Apr 20 2017 08:50:19 GMT-0600 (MDT) -->
+    <!--  Build Date: Thu Apr 20 2017 08:54:05 GMT-0600 (MDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Thu Apr 20 2017 08:50:19 GMT-0600 (MDT)";
-        var CHECKSUM = 42387477502;
+        var APP_BUILD_DATE = "Thu Apr 20 2017 08:54:05 GMT-0600 (MDT)";
+        var CHECKSUM = 42387477392;
     </script>
     
-    <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
+    <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
 
     <script type="text/javascript">
         Rally.onReady(function() {
