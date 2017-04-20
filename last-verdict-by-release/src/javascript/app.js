@@ -185,54 +185,10 @@ Ext.define("last-verdict-by-release", {
             }
         });
 
-
-        //_.each(artifacts, function(a){
-        //    var fid = a.get('FormattedID'),
-        //        prefix = fid.replace(/[0-9]/g, ""),
-        //        num = Number(fid.replace(/[^0-9]/g, ""));
-        //    console.log('pn',prefix, num);
-        //    if (!prefixHash[prefix]){
-        //        prefixHash[prefix] = { min: null, max: null};
-        //    }
-        //    if (prefixHash[prefix].min === null || prefixHash[prefix].min > num){
-        //        prefixHash[prefix].min = num;
-        //    }
-        //    if (prefixHash[prefix].max === null || prefixHash[prefix].max < num){
-        //        prefixHash[prefix].max = num;
-        //    }
-        //});
-        //
-        //
-        //var filters = [];
-        //_.each(prefixHash, function(obj, prefix){
-        //    if (prefix !== this._getTestSetPrefix()){
-        //        var filter = Ext.create('Rally.data.wsapi.Filter',{
-        //            property: 'WorkProduct.FormattedID',
-        //            operator: '>=',
-        //            value: Ext.String.format('{0}{1}', prefix, obj.min)
-        //        });
-        //        filter = filter.and(Ext.create('Rally.data.wsapi.Filter',{
-        //            property: 'WorkProduct.FormattedID',
-        //            operator: '<=',
-        //            value: Ext.String.format('{0}{1}', prefix, obj.max)
-        //        }));
-        //    } else {
-        //        var filter = Ext.create('Rally.data.wsapi.Filter',{
-        //            property: 'TestSets.FormattedID',
-        //            operator: 'contains',
-        //            value: Ext.String.format('{0}{1}', prefix, obj.min)
-        //        });
-        //        filter = filter.and(Ext.create('Rally.data.wsapi.Filter',{
-        //            property: 'WorkProduct.FormattedID',
-        //            operator: '<=',
-        //            value: Ext.String.format('{0}{1}', prefix, obj.max)
-        //        }));
-        //    }
-        //
-        //    filters.push(filter);
-        //});
-        filters = Rally.data.wsapi.Filter.or(filters);
-        this.logger.log('_getTestCaseFilters', filters.toString());
+        if (filters && filters.length > 1){
+            filters = Rally.data.wsapi.Filter.or(filters);
+            this.logger.log('_getTestCaseFilters', filters.toString());
+        }
         return filters;
 
     },
@@ -254,6 +210,8 @@ Ext.define("last-verdict-by-release", {
             fetch: this.testCaseFetch,
             filters: filters,
           //  limit: 'Infinity',
+            compact: false,
+            pageSize: 2000,
             enablePostGet: true,
             groupField: 'LastVerdict',
             getGroupString: function(record) {
@@ -269,7 +227,7 @@ Ext.define("last-verdict-by-release", {
 
     },
     _buildSummaryGrid: function(store, testCaseRecords, operation){
-        this.logger.log('_buildDisplay', testCaseRecords, operation, _.map(testCaseRecords, function(tc){ return tc.get('FormattedID'); }));
+        this.logger.log('_buildDisplay', testCaseRecords, store, _.map(testCaseRecords, function(tc){ return tc.get('FormattedID'); }));
 
         var casesRun = _.filter(testCaseRecords, function(tc){ return tc.get('LastVerdict')});
         this.logger.log('_mungeData', casesRun.length, testCaseRecords.length);
@@ -287,6 +245,7 @@ Ext.define("last-verdict-by-release", {
             store: store,
             itemId: 'grouped-grid',
             margin: 10,
+            pageSize: 2000,
             columnCfgs: this._getColumnCfgs(),
             features: [{ftype:'grouping'}],
 
