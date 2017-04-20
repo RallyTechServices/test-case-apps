@@ -150,6 +150,7 @@ Ext.define("last-verdict-by-release", {
             fetch: this.artifactFetch,
             filters: filters,
             enablePostGet: true,
+            limit: 'Infinity',
             sorters: [{
                 property: 'FormattedID',
                 direction: 'ASC'
