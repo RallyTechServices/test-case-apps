@@ -116,6 +116,7 @@ Ext.define("release-test-coverage", {
             models: this.artifactModels,
             fetch: this.artifactFetch,
             filters: filters,
+            limit: 'Infinity',
             sorters: [{
                 property: 'FormattedID',
                 direction: 'ASC'
