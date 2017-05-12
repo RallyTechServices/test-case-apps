@@ -3,11 +3,11 @@
 <head>
     <title>Release Test Coverage</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Fri Jan 22 2016 08:51:01 GMT-0700 (MST) -->
+    <!--  Build Date: Fri Apr 21 2017 15:02:06 GMT-0600 (MDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Fri Jan 22 2016 08:51:01 GMT-0700 (MST)";
-        var CHECKSUM = 40999940141;
+        var APP_BUILD_DATE = "Fri Apr 21 2017 15:02:06 GMT-0600 (MDT)";
+        var CHECKSUM = 41046030819;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -1017,6 +1017,7 @@ Ext.define("release-test-coverage", {
             models: this.artifactModels,
             fetch: this.artifactFetch,
             filters: filters,
+            limit: 'Infinity',
             sorters: [{
                 property: 'FormattedID',
                 direction: 'ASC'
