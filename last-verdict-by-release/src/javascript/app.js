@@ -169,19 +169,22 @@ Ext.define("last-verdict-by-release", {
             filters = [];
 
         _.each(artifacts, function(a){
-            var fid = a.get('FormattedID'),
+            var oid = a.get('ObjectID'),
+                fid = a.get('FormattedID'),
                 prefix = fid.replace(/[0-9]/g, "");
 
             if (prefix === testSetPrefix){
                 filters.push({
-                    property: 'TestSets.FormattedID',
-                    operator: 'contains',
-                    value: fid
+                    // property: 'TestSets.FormattedID',
+                    // operator: 'contains',
+                    // value: fid
+                    property: 'TestSets.ObjectID',
+                    value: oid
                 });
             } else {
                 filters.push({
-                    property: 'WorkProduct.FormattedID',
-                    value: fid
+                    property: 'WorkProduct.ObjectID',
+                    value: oid
                 });
             }
         });
@@ -440,16 +443,16 @@ Ext.define("last-verdict-by-release", {
             }
         ];
     },
-    
+
     _launchInfo: function() {
         if ( this.about_dialog ) { this.about_dialog.destroy(); }
         this.about_dialog = Ext.create('Rally.technicalservices.InfoLink',{});
     },
-    
+
     isExternal: function(){
         return typeof(this.getAppId()) == 'undefined';
     },
-    
+
     //onSettingsUpdate:  Override
     onSettingsUpdate: function (settings){
         this.logger.log('onSettingsUpdate',settings);
