@@ -123,7 +123,8 @@ Ext.define("catsLastVerdictByTimebox", {
                   margin: 5,
                   listeners: {
                       scope: this,
-                      select: this._update
+                      select: this._update,
+                      ready: this._update
                   }
               });
           }
@@ -185,6 +186,9 @@ Ext.define("catsLastVerdictByTimebox", {
       },
       getTimeboxProperty: function(){
          var type = this.getTimeboxRecord() && this.getTimeboxRecord().get('_type');
+         this.logger.log('getTimeboxProperty', type, this.getTimeboxRecord());
+         if (!type){ return "Timebox" }
+
          type = type.charAt(0).toUpperCase() + type.substr(1);
          this.logger.log('getTimeboxProperty', type);
          return type;
@@ -193,6 +197,7 @@ Ext.define("catsLastVerdictByTimebox", {
 
           this.logger.log('_update', this.getTimeboxRecord());
           if (!this.getTimeboxRecord()){
+              this.getChartBox().removeAll();
               this._addAppMessage("Please select a " + this.getTimeboxProperty(), this.getChartBox());
               if (this.down('rallygrid')){
                   this.down('rallygrid').destroy();
