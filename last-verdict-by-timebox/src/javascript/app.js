@@ -62,6 +62,8 @@ Ext.define("catsLastVerdictByTimebox", {
       },
 
       onTimeboxScopeChange: function(timeboxScope){
+          if (!this.getScopeSelectorSetting() === 'dashboard'){ return; }
+
           this.getContext().setTimeboxScope(timeboxScope);
           this.logger.log('onTimeboxScopeChange', timeboxScope, timeboxScope.getRecord());
 
