@@ -47,8 +47,9 @@ Ext.define("catsLastVerdictByTimebox", {
           return true;
       },
 
-      _addAppMessage: function(msg){
-        this.add({
+      _addAppMessage: function(msg, ct){
+        if (!ct){ ct = this; }
+        ct.add({
           xtype: 'container',
           itemId: 'appMessage',
           html: Ext.String.format('<div class="no-data-container"><div class="primary-message">{0}</div></div>',msg)
@@ -88,10 +89,12 @@ Ext.define("catsLastVerdictByTimebox", {
           if (this.getScopeSelectorSetting() === 'dashboard'){
               return (this.getContext().getTimeboxScope() && this.getContext().getTimeboxScope().getRecord()) || null;
           }
+          this.logger.log('getTimeboxRecord',this.getScopeSelectorSetting(), this.down(this.getScopeSelectorSetting()).getRecord());
           return this.down(this.getScopeSelectorSetting()).getRecord() || null;
       },
       _addComponents: function(){
-          this.logger.log('_addComponents');
+          var scopeSelector = this.getScopeSelectorSetting();
+          this.logger.log('_addComponents', scopeSelector);
 
           this.removeAll();
 
@@ -113,7 +116,7 @@ Ext.define("catsLastVerdictByTimebox", {
               padding: 10
           });
 
-          var scopeSelector = this.getScopeSelectorSetting();
+
           if (scopeSelector !== 'dashboard'){
               selectorBox.add({
                   xtype: scopeSelector,
@@ -190,7 +193,7 @@ Ext.define("catsLastVerdictByTimebox", {
 
           this.logger.log('_update', this.getTimeboxRecord());
           if (!this.getTimeboxRecord()){
-              this.down('#ct-summary').update({message: "Please select a Release"});
+              this._addAppMessage("Please select a " + this.getTimeboxProperty(), this.getChartBox());
               if (this.down('rallygrid')){
                   this.down('rallygrid').destroy();
               }
@@ -661,7 +664,7 @@ Ext.define("catsLastVerdictByTimebox", {
       },
       getSettingsFields: function(){
           return [{
-            name: 'timeboxScopeSelector',
+            name: 'scopeSelector',
             xtype: 'rallycombobox',
             fieldLabel: 'Scope Selector Type',
             labelWidth: 150,
