@@ -3,13 +3,13 @@
 <head>
     <title>Last Verdict by Timebox</title>
     <!--  (c) 2017 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Thu Jun 01 2017 23:48:15 GMT-0600 (MDT) -->
+    <!--  Build Date: Fri Jun 02 2017 12:06:41 GMT-0600 (MDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Thu Jun 01 2017 23:48:15 GMT-0600 (MDT)";
+        var APP_BUILD_DATE = "Fri Jun 02 2017 12:06:41 GMT-0600 (MDT)";
         var STORY    = "F279";
         var BUILDER  = "corkr03";
-        var CHECKSUM = 18816724775;
+        var CHECKSUM = 18816716587;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
