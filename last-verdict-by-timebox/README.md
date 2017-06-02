@@ -2,7 +2,7 @@
 
 ## Summary/Description
 
-![screenshot](./images/last-verdict-by-timebox.png)
+![screenshot](/images/last-verdict-by-timebox.png)
 
 App shows test case run coverage and results of the last verdict by the selected timebox (options are Release or Iteration).  This app can be run on a Release or Iteration scoped dashboard, or on a dashboard without release or iteration scope.  The scope that the app follows is determined by the Scope Selector type in the App Settings.
 
