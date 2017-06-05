@@ -129,13 +129,19 @@ Ext.define("catsLastVerdictByTimebox", {
               });
           }
 
-          selectorBox.add({
+          this.inlineFilterButton = selectorBox.add({
             xtype: 'rallyinlinefilterbutton',
             modelNames: ['TestCase'],
             context: this.getContext(),
-            margin: 5,
             stateful: true,
+            margin: '3 9 3 30',
             stateId: 'test-case-filter',
+            _previousTypesAndFilters: {},
+            inlineFilterPanelConfig: {
+               quickFilterPanelConfig: {
+                   whiteListFields: ['Tags']
+               }
+           },
             listeners: {
               inlinefilterready: this.addInlineFilterPanel,
               inlinefilterchange: this._update,
@@ -143,12 +149,22 @@ Ext.define("catsLastVerdictByTimebox", {
             }
           });
 
-          var tpl = new Rally.technicalservices.ProgressBarTemplate({});
+          // this.clearFilterButton = selectorBox.add({
+          //     xtype: 'rallybutton',
+          //     itemId: 'clearAllButton',
+          //     cls: 'secondary rly-small clear-all-filters-button',
+          //     text: 'Clear All',
+          //     margin: '3 9 3 -11',
+          //     hidden: !this._hasFilters(),
+          //     listeners: {
+          //         click: this._clearFilters,
+          //         scope: this
+          //     }
+          // });
+
           northBox.add({
               xtype: 'container',
-              //itemId: 'ct-summary',
               itemId: 'chartBox',
-              //tpl: tpl,
               flex: 1
           });
 
@@ -157,7 +173,7 @@ Ext.define("catsLastVerdictByTimebox", {
               //text: 'Export',
               iconCls: 'icon-export',
               cls: 'rly-small secondary',
-              margin: 5,
+              margin: 3,
               listeners: {
                   scope: this,
                   click: this._export
@@ -193,6 +209,12 @@ Ext.define("catsLastVerdictByTimebox", {
          this.logger.log('getTimeboxProperty', type);
          return type;
       },
+      _hasFilters: function(){
+        return !!this.inlineFilterButton.getFilterCount();
+      },
+      _clearFilters: function(){
+          //this.inlineFilterButton.clearAllFilters();
+      },
       _update: function(){
 
           this.logger.log('_update', this.getTimeboxRecord());
@@ -209,6 +231,12 @@ Ext.define("catsLastVerdictByTimebox", {
               property: this.getTimeboxProperty() + '.Name',
               value: this.getTimeboxRecord().get('Name')
           });
+
+          // if (this._hasFilters()) {
+          //     this.clearFilterButton.show();
+          // } else {
+          //     this.clearFilterButton.hide();
+          // }
 
           Ext.create('Rally.data.wsapi.artifact.Store', {
               models: this.artifactModels,
@@ -537,7 +565,7 @@ Ext.define("catsLastVerdictByTimebox", {
       },
       _getExportColumnCfgs: function(){
           var artifact_hash = {},
-              releaseName = this.getReleaseTimeboxRecord().get('Name');
+              releaseName = this.getTimeboxRecord().get('Name');
 
           _.each(this.artifactRecords, function(r){
               artifact_hash[r.get('FormattedID')] = r;
