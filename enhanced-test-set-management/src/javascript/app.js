@@ -97,6 +97,16 @@ Ext.define("enhanced-test-set-mgmt", {
                               {
                                   xtype: 'rallyrecordmenuitemenhancedaddtestcase',
                                   record: record
+                              },{
+                                  xtype: 'menuseparator',
+                                  margin: '0 0 0 0',
+                                  padding: '0 0 0 0'
+                              },{
+                                 xtype: 'rallyrecordmenuitemcopy',
+                                 record: record
+                              },{
+                                xtype: 'rallyrecordmenuitemdelete',
+                                record: record
                               }
                           ];
                       }

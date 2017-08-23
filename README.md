@@ -18,3 +18,7 @@ App that shows test coverage statistics and lists artifacts without test coverag
 ## Enhanced Test Set Management
 Custom Grid that allows users to add test cases by searching through a test folder hierarchy, user stories or test cases.  
 ![ScreenShot](/enhanced-test-set-management/images/screenshot.png)
+
+## Test Status by attribute
+Matrix view that shows test status by attribute
+![ScreenShot](/test-status-by-attribute/images/screenshot.png)
