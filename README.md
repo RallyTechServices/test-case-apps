@@ -14,3 +14,7 @@ Updated version of Last Verdict by Release that shows test case run coverage and
 App that shows test coverage statistics and lists artifacts without test coverage for a release [(more...)](/release-test-coverage/README.md)  
 
 ![ScreenShot](/images/release-test-coverage.png)
+
+## Enhanced Test Set Management
+Custom Grid that allows users to add test cases by searching through a test folder hierarchy, user stories or test cases.  
+![ScreenShot](/enhanced-test-set-mgmt/images/screenshot.png)
