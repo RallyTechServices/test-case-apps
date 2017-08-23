@@ -8,6 +8,11 @@ Custom List app with the following enhancements:
 
 ![screenshot](./images/screenshot.png "This is an example")
 
+To use, select the type of item you'd like to search for (choices are Test Folder, User Story or Test Case);
+Enter the search terms for the item type you selected.  
+If searching on Test Folders, a test folder hierarchy will be presented.  
+If searching on user stories or test cases, a flat grid of test cases will be presented.  
+
 ## Development Notes
 
 ### First Load
