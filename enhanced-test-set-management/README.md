@@ -1,7 +1,7 @@
 # Enhanced Test Case Management
 Custom List app with the following enhancements:
 * Ability to search test cases by any test folder in the test case hierarchy in the currently scoped project.
-* Ability to search test cases by any user story in the currently scoped project.
+* Ability to search test cases by any user story or defect in the workspace.  Note that as a result test cases will not be filtered by the scoped project.
 * Ability to search test cases by name in the currently scoped project.   
 
 ## Summary/Description
