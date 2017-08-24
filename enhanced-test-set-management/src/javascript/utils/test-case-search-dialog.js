@@ -136,6 +136,14 @@ Ext.define('CA.ts.testcaseapps.dialog.AddTestCaseDialog',{
                  scope: this
              },
              triggerBaseCls: 'icon-search chooser-search-icon'
+          },{
+            xtype: 'rallybutton',
+             cls: 'rly-small primary',
+             iconCls: 'icon-search',
+             listeners: {
+               click: this._search,
+               scope: this
+             }
           }]
       });
 
@@ -146,6 +154,10 @@ Ext.define('CA.ts.testcaseapps.dialog.AddTestCaseDialog',{
         if (pressed){
             bt.removeCls('secondary');
             bt.addCls('primary');
+
+            if (this.down('#searchTerms').getValue()){
+               this._search();
+            }
         } else {
           bt.removeCls('primary');
           bt.addCls('secondary');
