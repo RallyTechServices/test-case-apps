@@ -23,31 +23,37 @@ Ext.define("test-status-by-attribute", {
           rowLimit: ''
        }
     },
+
     yAxisOptions: [],
+
     launch: function() {
         var me = this;
         this._initializeApp();
-
     },
+
     _initializeApp: function(){
+        fieldBlackList = ['Milestones','Tags'];
         Deft.Promise.all([
-            Rally.technicalservices.WsapiToolbox.fetchModelFields('TestSet'),
-            Rally.technicalservices.WsapiToolbox.fetchModelFields('Artifact'),
-            Rally.technicalservices.WsapiToolbox.fetchModelFields('TestCase')
+            Rally.technicalservices.WsapiToolbox.fetchModelFields('TestSet',fieldBlackList),
+            Rally.technicalservices.WsapiToolbox.fetchModelFields('Artifact',fieldBlackList),
+            Rally.technicalservices.WsapiToolbox.fetchModelFields('TestCase',fieldBlackList)
         ]).then({
             success: function(results){
-                this._initailizeYAxisOptions(results[0],results[1], results[2]);
+                this._initializeYAxisOptions(results[0],results[1], results[2]);
                 this._initializeDisplay();
             },
             failure: this._showErrorNotification,
             scope: this
         });
     },
-    _initailizeYAxisOptions: function(testSetFields, artifactFields, testCaseFields){
+
+    _initializeYAxisOptions: function(testSetFields, artifactFields, testCaseFields){
         var yAxisOptions = [];
 
         Ext.Array.each(testCaseFields, function(f){
-            if ((f.attributeDefinition && f.attributeDefinition.Constrained) ||
+            var defn = f.attributeDefinition;
+
+            if ((defn && defn.Constrained && defn.AttributeType != "COLLECTION") ||
                 f.name === 'TestFolder'){
               yAxisOptions.push({
                  displayName: 'TestCase: ' + f.displayName,
@@ -59,7 +65,9 @@ Ext.define("test-status-by-attribute", {
         });
 
         Ext.Array.each(testSetFields, function(f){
-            if ((f.attributeDefinition && f.attributeDefinition.Constrained) || f.name === 'Name'){
+            var defn = f.attributeDefinition;
+            if ((defn && defn.Constrained && defn.AttributeType != "COLLECTION" ) ||
+                f.name === 'Name'){
               yAxisOptions.push({
                  displayName: 'TestSet: ' + f.displayName,
                  modelName: 'TestSet',
@@ -70,7 +78,9 @@ Ext.define("test-status-by-attribute", {
         });
 
         Ext.Array.each(artifactFields, function(f){
-            if ((f.attributeDefinition && f.attributeDefinition.Constrained) || f.name === 'Name'){
+            var defn = f.attributeDefinition;
+            if ((defn && defn.Constrained && defn.AttributeType != "COLLECTION" ) ||
+                f.name === 'Name'){
               yAxisOptions.push({
                  displayName: 'WorkProduct: ' + f.displayName,
                  modelName: 'WorkProduct',
@@ -88,99 +98,198 @@ Ext.define("test-status-by-attribute", {
         Rally.ui.notify.Notifier.showError({message: msg});
     },
     _initializeDisplay: function(){
-         var selectorBox = this.add({
+        var selectorBox = this.add({
             xtype: 'container',
             layout: 'hbox',
             itemId: 'selectorBox'
-         });
+        });
 
-         selectorBox.add({
-           xtype: 'rallycombobox',
-           store: Ext.create('Ext.data.Store',{
-               fields: ['displayName','modelName','fieldName'],
-               data: this.yAxisOptions
-           }),
-           itemId: 'yAxisField',
-           labelAlign: 'right',
-           margin: 5,
-           fieldLabel: 'Y Axis Field',
-           labelWidth: 100,
-           displayField: 'displayName',
-           valueField: 'queryName'
-         });
+        selectorBox.add({
+            xtype: 'rallycombobox',
+            store: Ext.create('Ext.data.Store',{
+                fields: ['displayName','modelName','fieldName'],
+                data: this.yAxisOptions
+            }),
+            itemId: 'yAxisField',
+            labelAlign: 'right',
+            margin: 5,
+            fieldLabel: 'Y Axis Field',
+            labelWidth: 100,
+            displayField: 'displayName',
+            valueField: 'displayName'
+        });
 
-         selectorBox.add({
-           xtype: 'rallybutton',
-          text: 'Update',
-          margin: 5,
-          listeners: {
-              click: this._updateDisplay,
-              scope: this
-          }
-         });
+        selectorBox.add({
+            xtype: 'rallybutton',
+            text: 'Update',
+            margin: 5,
+            listeners: {
+                click: this._updateDisplay,
+                scope: this
+            }
+        });
+
+        this.add({
+            xtype:'container',
+            itemId:'display_box'
+        });
     },
+
     _updateDisplay: function(){
-       var yAxisModelName = this.getYAxisModelName(),
-           yAxisField = this.getYAxisFieldName();
-       this.logger.log('_updateDisplay');
+        var me = this,
+            y_selector = this.down('#yAxisField');
 
-       this._fetchData().then({
-           success: this._buildGrid,
-           failure: this._showErrorNotification,
-           scope: this
-       });
+        if ( Ext.isEmpty(y_selector.getValue()) ) { return; }
 
-    },
-    getYAxisFields: function(){
-        var yAxisFields = [];
-        var y = this.down('#yAxisField').getRecord();
-        if (y.get('modelName') === 'WorkProduct'){
-           yAxisFields.push('WorkProduct');
-        }
-        yAxisFields.push(y.get('fieldName'));
-        return yAxisFields;
-    },
-    getYAxisModelName: function(){
-      var y = this.down('#yAxisField').getStore().find('displayName',this.down('#yAxisField').getValue());
-      return y.get('modelName');
-    },
-    getFilters: function(){
-       if (this.getYAxisModelName() === 'WorkProduct'){
-          return [{
-             property: 'WorkProduct.ObjectID',
-             operator: '>',
-             value: 0
-          }];
-       }
-       if (this.getYAxisModelName() === 'TestSet'){
-          return [{
-             property: 'TestCases.ObjectID',
-             operator: '>',
-             value: 0
-          }];
-       }
-       return [];
-    },
-    _fetchData: function(){
+        var yAxisModelName = this._getAxisModelName(y_selector),
+            yAxisFieldName = this._getAxisFieldName(y_selector);
 
-        if (this.getYAxisModelName() === 'TestSet'){
-            //we need to load test sets and then test cases.
-            return Rally.technicalservices.WsapiToolbox.fetchWsapiRecords({
-              model: 'TestSet',
-              fetch: ['TestCases','ObjectID','Name'].concat(this.getYAxisFields()),
-              filters: this.getFilters()
-            });
+        this.setLoading();
+        Deft.Chain.pipeline([
+            function() {
+                return me._fetchData(yAxisModelName,yAxisFieldName);
+            },
+            function(results) {
+                return me._organizeTestCaseResults(yAxisModelName,yAxisFieldName,results);
+            },
+            function(counts) {
+                return me._buildGrid(counts);
+            }
+        ],this).then({
+            failure: this._showErrorNotification,
+            success: null,
+            scope: this
+        }).always(function() { me.setLoading(false);});
+    },
+
+    _getAxisModelName: function(selector) {
+        var value = selector.getValue();
+
+        var record = selector.getStore().findRecord('displayName',value);
+        return record && record.get('modelName');
+    },
+
+    _getAxisFieldName: function(selector) {
+        var value = selector.getValue();
+        var record = selector.getStore().findRecord('displayName',value);
+        return record && record.get('fieldName');
+    },
+
+    _getFilters: function(yAxisModelName,yAxisFieldName){
+       return [{property:'ObjectID',operator:'>',value:0}];
+    },
+
+    _fetchData: function(yAxisModelName,yAxisFieldName){
+        this.logger.log('_updateDisplay', yAxisModelName, yAxisFieldName);
+
+        return Rally.technicalservices.WsapiToolbox.fetchWsapiRecords({
+            model: 'TestCaseResult',
+            fetch: ['TestCase','Verdict','TestSet','WorkProduct','ObjectID','Name','Date',yAxisFieldName],
+            limit: Infinity,
+            pageSize: 2000,
+            filters: this._getFilters(),
+            sorters: [{property:'Date',direction:'ASC'}]
+        });
+    },
+
+    _organizeTestCaseResults: function(yAxisModelName,yAxisFieldName,results){
+        this.logger.log('Organize Results', results.length);
+        // assumes that the results have been returned in ascending order so we can just
+        // replace with the latest and eventually get the last for each test case and workproduct/testset
+        // first, create a hash of hashes to distill down to the most recent result for each combo
+        var results_by_testcase_and_subset = {};
+        Ext.Array.each(results, function(result){
+            var testcase_oid = result.get('TestCase') && result.get('TestCase').ObjectID;
+            var related_item_oid = result.get(yAxisModelName) && result.get(yAxisModelName).ObjectID || 'None';
+            if ( yAxisModelName === "WorkProduct" ){
+                related_item_oid = result.get('TestCase')[yAxisModelName] && result.get('TestCase')[yAxisModelName].ObjectID || 'None';
+            }
+            if ( Ext.isEmpty(results_by_testcase_and_subset[testcase_oid]) ) {
+                results_by_testcase_and_subset[testcase_oid] = {};
+            }
+            results_by_testcase_and_subset[testcase_oid][related_item_oid] = result;
+        });
+        this.logger.log(results_by_testcase_and_subset);
+        // second, create an array of results for each field value on the related item
+        var results_by_fieldvalue = {};
+        Ext.Object.each(results_by_testcase_and_subset,function(testcase_oid,related_item_results){
+            Ext.Object.each(related_item_results, function(oid,result){
+                value = this._getValueFromRelatedRecord(result,yAxisModelName,yAxisFieldName);
+                verdict = result.get('Verdict');
+                if ( Ext.isEmpty(results_by_fieldvalue[value]) ) {
+                    results_by_fieldvalue[value] = { name: value };
+                }
+                if ( Ext.isEmpty(results_by_fieldvalue[value][verdict]) ) {
+                    results_by_fieldvalue[value][verdict] = 0;
+                }
+                results_by_fieldvalue[value][verdict] = results_by_fieldvalue[value][verdict] + 1;
+            },this);
+        },this);
+
+        return results_by_fieldvalue;
+    },
+
+    _getValueFromRelatedRecord: function(result,modelname,fieldname){
+        var value = "";
+        if ( modelname == "TestCase" || modelname == "TestSet" ) {
+            value = result.get(modelname) && result.get(modelname)[fieldname] || "None";
         } else {
-          return Rally.technicalservices.WsapiToolbox.fetchWsapiRecords({
-              model: 'TestCase',
-              fetch: ['LastVerdict','ObjectID'].concat(this.getYAxisFields()),
-              filters: this.getFilters()
-          });
+            value = result.get('TestCase')[modelname] && result.get('TestCase')[modelname][fieldname] || "None";
         }
+
+        if ( value._refObjectName ) { value = value._refObjectName; }
+        return value;
     },
-    _buildGrid: function(records){
-        this.logger.log('_buildGrid', records);
+
+    /*
+     * Given a hash of counts (key is field value and value is hash of verdict counts)
+     */
+    _buildGrid: function(counts){
+        this.logger.log('_buildGrid', counts);
+        var x_values = this._getXValuesFromCounts(counts);
+        var rows = Ext.Object.getValues(counts);
+
+        this.logger.log('cols',x_values);
+        this.logger.log('rows',rows);
+
+        var store = Ext.create('Rally.data.custom.Store',{
+            fields: x_values,
+            data: rows
+        });
+
+        console.log(store);
+
+        var container = this.down('#display_box');
+        container.removeAll();
+        container.add({
+            xtype:'rallygrid',
+            store: store,
+            showRowActionsColumn: false,
+            columnCfgs: this._getColumns(x_values)
+        });
     },
+
+    _getColumns: function(x_values) {
+        var columns = Ext.Array.map(x_values, function(value){
+            if ( value == "name" ) {
+                return { dataIndex:value, text: "", flex: 1 };
+            }
+            return { dataIndex:value, text:value, renderer: function(value){
+                return value || 0;
+            }};
+        });
+        return columns;
+    },
+
+    _getXValuesFromCounts: function(counts) {
+        var names = [];
+        Ext.Object.each(counts, function(field,count){
+            Ext.Array.push(names,Ext.Object.getKeys(count));
+        });
+
+        return Ext.Array.unique(names);
+    },
+
     getOptions: function() {
         return [
             {
