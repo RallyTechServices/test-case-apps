@@ -99,13 +99,21 @@ Ext.define('Rally.technicalservices.WsapiToolbox',{
         return deferred;
 
     },
-    fetchModelFields: function(modelName){
+    fetchModelFields: function(modelName, blacklist){
       var deferred = Ext.create('Deft.Deferred');
 
       Rally.data.ModelFactory.getModel({
           type: modelName,
           success: function(model) {
-              deferred.resolve(model.getFields());
+              var fields = model.getFields();
+              if ( Ext.isEmpty(blacklist) ) {
+                  deferred.resolve(fields);
+                  return;
+              }
+              fields = Ext.Array.filter(fields, function(field){
+                  return !Ext.Array.contains(blacklist,field.name);
+              });
+              deferred.resolve(fields);
           },
           failure: function(msg) { deferred.reject('Error loading field values: ' + msg); }
       });
