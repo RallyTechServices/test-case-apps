@@ -188,7 +188,12 @@ Ext.define('CA.ts.testcaseapps.dialog.AddTestCaseDialog',{
           property: 'WorkProduct.Name',
           operator: 'contains',
           value: terms
+        },{
+          property: 'WorkProduct.FormattedID',
+          value: terms
         }];
+
+        filters = Rally.data.wsapi.Filter.or(filters);
 
         this.down('#gridBox').add({
            xtype: 'rallygrid',
@@ -200,6 +205,7 @@ Ext.define('CA.ts.testcaseapps.dialog.AddTestCaseDialog',{
                 project: project,
                 projectScopeDown: true
              },
+             enablePostGet: true,
              autoLoad: true,
              pageSize: 2000
            },
@@ -221,7 +227,6 @@ Ext.define('CA.ts.testcaseapps.dialog.AddTestCaseDialog',{
     _buildTestFolderSearchGrid: function(terms, project){
         var tfFilters = [],
             tcFilters = [];
-
 
         var MAX_FOLDER_LEVELS = 12;
 
@@ -391,7 +396,12 @@ Ext.define('CA.ts.testcaseapps.dialog.AddTestCaseDialog',{
          property: 'Name',
          operator: 'contains',
          value: terms
+      },{
+         property: 'FormattedID',
+         value: terms
       }];
+
+      filters = Rally.data.wsapi.Filter.or(filters);
 
       this.down('#gridBox').add({
          xtype: 'rallygrid',
