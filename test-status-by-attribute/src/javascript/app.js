@@ -51,7 +51,9 @@ Ext.define("test-status-by-attribute", {
         var yAxisOptions = [];
 
         Ext.Array.each(testCaseFields, function(f){
-            if ((f.attributeDefinition && f.attributeDefinition.Constrained) ||
+            var defn = f.attributeDefinition;
+
+            if ((defn && defn.Constrained && defn.AttributeType != "COLLECTION") ||
                 f.name === 'TestFolder'){
               yAxisOptions.push({
                  displayName: 'TestCase: ' + f.displayName,
@@ -63,7 +65,9 @@ Ext.define("test-status-by-attribute", {
         });
 
         Ext.Array.each(testSetFields, function(f){
-            if ((f.attributeDefinition && f.attributeDefinition.Constrained) || f.name === 'Name'){
+            var defn = f.attributeDefinition;
+            if ((defn && defn.Constrained && defn.AttributeType != "COLLECTION" ) ||
+                f.name === 'Name'){
               yAxisOptions.push({
                  displayName: 'TestSet: ' + f.displayName,
                  modelName: 'TestSet',
@@ -74,7 +78,9 @@ Ext.define("test-status-by-attribute", {
         });
 
         Ext.Array.each(artifactFields, function(f){
-            if ((f.attributeDefinition && f.attributeDefinition.Constrained) || f.name === 'Name'){
+            var defn = f.attributeDefinition;
+            if ((defn && defn.Constrained && defn.AttributeType != "COLLECTION" ) ||
+                f.name === 'Name'){
               yAxisOptions.push({
                  displayName: 'WorkProduct: ' + f.displayName,
                  modelName: 'WorkProduct',
