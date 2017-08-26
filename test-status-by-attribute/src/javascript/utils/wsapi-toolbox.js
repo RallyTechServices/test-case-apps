@@ -42,6 +42,27 @@ Ext.define('Rally.technicalservices.WsapiToolbox',{
         });
         return deferred;
     },
+    fetchArtifacts: function(config){
+        var deferred = Ext.create('Deft.Deferred');
+
+        if (!config.limit){
+           config.limit = 'Infinity';
+        }
+        if (!config.pageSize){
+           config.pageSize = 2000;
+        }
+
+        var store = Ext.create('Rally.data.wsapi.artifact.Store',config).load({
+            callback: function(records, operation, success){
+                if (success){
+                    deferred.resolve(records);
+                } else {
+                    deferred.reject(Ext.String.format("Error getting {0} for {1}: {2}", model, query_filters.toString(), operation.error.errors.join(',')));
+                }
+            }
+        });
+        return deferred;
+    },
     fetchReleases: function(timebox){
 
         var deferred = Ext.create('Deft.Deferred'),

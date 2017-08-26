@@ -30,16 +30,22 @@ Ext.define("test-status-by-attribute", {
         var me = this;
         this._initializeApp();
     },
-
+    onTimeboxScopeChange: function(timeboxScope){
+        this.logger.log('onTimeboxScopeChange', timeboxScope);
+        this.getContext().setTimeboxScope(timeboxScope);
+        this._updateDisplay();
+    },
     _initializeApp: function(){
         fieldBlackList = ['Milestones','Tags'];
         Deft.Promise.all([
             Rally.technicalservices.WsapiToolbox.fetchModelFields('TestSet',fieldBlackList),
             Rally.technicalservices.WsapiToolbox.fetchModelFields('Artifact',fieldBlackList),
-            Rally.technicalservices.WsapiToolbox.fetchModelFields('TestCase',fieldBlackList)
+            Rally.technicalservices.WsapiToolbox.fetchModelFields('TestCase',fieldBlackList),
+            Rally.technicalservices.WsapiToolbox.fetchAllowedValues('TestCaseResult','Verdict')
         ]).then({
             success: function(results){
                 this._initializeYAxisOptions(results[0],results[1], results[2]);
+                this.possibleVerdicts = results[3];
                 this._initializeDisplay();
             },
             failure: this._showErrorNotification,
@@ -113,8 +119,9 @@ Ext.define("test-status-by-attribute", {
             itemId: 'yAxisField',
             labelAlign: 'right',
             margin: 5,
-            fieldLabel: 'Y Axis Field',
-            labelWidth: 100,
+            fieldLabel: 'Group by',
+            labelWidth: 75,
+            width: 300,
             displayField: 'displayName',
             valueField: 'displayName'
         });
@@ -134,7 +141,30 @@ Ext.define("test-status-by-attribute", {
             itemId:'display_box'
         });
     },
-
+    _fetchTimeboxData: function(){
+       this.logger.log('_fetchTimeboxData', this.getContext().getTimeboxScope());
+       var deferred = Ext.create('Deft.Deferred');
+        this.timeboxRecords = null;
+       if (!this.getContext().getTimeboxScope()){
+           deferred.resolve(null);
+       } else {
+           var timebox = this.getContext().getTimeboxScope();
+            this.logger.log('timeboxScope', this.getContext().getTimeboxScope().getQueryFilter());
+            Rally.technicalservices.WsapiToolbox.fetchArtifacts({
+                 models: ['TestSet','HierarchicalRequirement','Defect'],
+                 fetch: ['ObjectID','TestCaseCount','TestCases','LastVerdict'],
+                 filters: this.getContext().getTimeboxScope().getQueryFilter()
+               }).then({
+                  success: function(results){
+                     deferred.resolve(results);
+                  },
+                  failure: function(msg){
+                      deferred.reject(msg);
+                  }
+               });
+        }
+       return deferred.promise;
+    },
     _updateDisplay: function(){
         var me = this,
             y_selector = this.down('#yAxisField');
@@ -146,16 +176,18 @@ Ext.define("test-status-by-attribute", {
 
         this.setLoading();
         Deft.Chain.pipeline([
-            function() {
-                return me._fetchData(yAxisModelName,yAxisFieldName);
+            function(){
+               return me._fetchTimeboxData();
+            },
+            function(timeboxRecords) {
+                return me._fetchData(yAxisModelName,yAxisFieldName, timeboxRecords);
             },
             function(results) {
                 return me._organizeTestCaseResults(yAxisModelName,yAxisFieldName,results);
             },
             function(counts) {
                 return me._buildGrid(counts);
-            }
-        ],this).then({
+            }],this).then({
             failure: this._showErrorNotification,
             success: null,
             scope: this
@@ -175,19 +207,65 @@ Ext.define("test-status-by-attribute", {
         return record && record.get('fieldName');
     },
 
-    _getFilters: function(yAxisModelName,yAxisFieldName){
-       return [{property:'ObjectID',operator:'>',value:0}];
+    _getFilters: function(yAxisModelName,yAxisFieldName, timeboxRecords){
+        this.logger.log('_getFilters', yAxisModelName, yAxisFieldName, timeboxRecords);
+
+        var filters = [];
+        if (timeboxRecords){
+            Ext.Array.each(timeboxRecords, function(r){
+               if (r.get('TestCaseCount') > 0){
+                 var type = 'TestCase.WorkProduct.ObjectID';
+                 if (r.get('_type') === 'testset'){
+                    type = 'TestSet.ObjectID';
+                 }
+                 filters.push({
+                    property: type,
+                    value: r.get('ObjectID')
+                 });
+               }
+            });
+            if (filters.length > 1){
+                filters = Rally.data.wsapi.Filter.or(filters);
+                this.logger.log('_getFilters', filters.toString());
+            }
+            if (filters.length === 0){
+               //no records are in the timebox
+               filters = [{
+                   property: 'ObjectID',
+                   value: 0
+               }];
+            }
+        } else {  //No timebox so just get everything in scope
+          if (yAxisModelName === 'Artifact'){
+            filters.push({
+               property: 'TestCase.WorkProduct.ObjectID',
+               operator: '>',
+               value: 0
+            });
+          } else if (yAxisModelName === 'TestSet'){
+             //If timebox scoped, then add that
+             filters.push({
+                property: 'TestSet.ObjectID',
+                operator: '>',
+                value: 0
+             });
+          } else {
+             filters = [{property:'ObjectID',operator:'>',value:0}]
+          }
+          this.logger.log('_getFilters', filters);
+        }
+
+       return filters;
     },
 
-    _fetchData: function(yAxisModelName,yAxisFieldName){
+    _fetchData: function(yAxisModelName,yAxisFieldName, timeboxRecords){
         this.logger.log('_updateDisplay', yAxisModelName, yAxisFieldName);
-
+         this.timeboxRecords = timeboxRecords;
         return Rally.technicalservices.WsapiToolbox.fetchWsapiRecords({
             model: 'TestCaseResult',
             fetch: ['TestCase','Verdict','TestSet','WorkProduct','ObjectID','Name','Date',yAxisFieldName],
-            limit: Infinity,
-            pageSize: 2000,
-            filters: this._getFilters(),
+            enablePostGet: true,
+            filters: this._getFilters(yAxisModelName, yAxisFieldName, timeboxRecords),
             sorters: [{property:'Date',direction:'ASC'}]
         });
     },
@@ -254,7 +332,8 @@ Ext.define("test-status-by-attribute", {
 
         var store = Ext.create('Rally.data.custom.Store',{
             fields: x_values,
-            data: rows
+            data: rows,
+            pageSize: rows.length
         });
 
         console.log(store);
@@ -265,6 +344,7 @@ Ext.define("test-status-by-attribute", {
             xtype:'rallygrid',
             store: store,
             showRowActionsColumn: false,
+            showPagingToolbar: false,
             columnCfgs: this._getColumns(x_values)
         });
     },
@@ -282,11 +362,12 @@ Ext.define("test-status-by-attribute", {
     },
 
     _getXValuesFromCounts: function(counts) {
+
         var names = [];
         Ext.Object.each(counts, function(field,count){
             Ext.Array.push(names,Ext.Object.getKeys(count));
         });
-
+        names = names.concat(this.possibleVerdicts);
         return Ext.Array.unique(names);
     },
 
