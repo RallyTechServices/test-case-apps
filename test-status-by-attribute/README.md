@@ -10,11 +10,24 @@ Can pick from a set of records/fields.
 
 ![screenshot of picker](./images/screenshot_picker.png "picker")
 
+* If the app is placed on a timebox scoped page, the test case results will be limited
+to testcases that are associated with the timebox via testcase or testset
+
+* When the app is timebox scoped and the parent record type for counting is not the testcase
+type, then there will be a percentage executed bar
+
+* When the the percentage executed bar is showing, the "None" row will include for calculation TestCases
+that got picked up by the timebox scope but are not associated with the proper type.  For example, if
+TestSet:Name is selected in the dropdown, then the test set name is the row key unless the test case was
+picked up because its Story is in the timebox.  For test cases associated with a story and a testset in the
+same timebox, the total count will be caught twice.
+
+![screenshot with execution](./images/screenshot_execution.png "execution")
+
 ## Development Notes
 
 * This could be very slow.  It goes and gets ALL of the test case results.  It
 has to do this because we want the last verdict of the test case _for the testset_.
-
 
 
 ### First Load
