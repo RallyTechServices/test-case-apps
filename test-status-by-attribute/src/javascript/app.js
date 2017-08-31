@@ -462,18 +462,32 @@ Ext.define("test-status-by-attribute", {
                 return {
                     dataIndex:value,
                     text:"Unexecuted",
-                    summaryType: 'sum',
+                    summaryType: function(records){
+                        var total = 0;
+                        Ext.Array.each(records, function(record){
+                            var record_value = record.get(value) || 0;
+                            total = total + record_value;
+                        });
+                        return total;
+                    },
                     align: 'right',
                     renderer: function(value){
                         return value || 0;
                     }
-            };
-
+                };
             }
+
             return {
                 dataIndex:value,
                 text:value,
-                summaryType: 'sum',
+                summaryType: function(records){
+                    var total = 0;
+                    Ext.Array.each(records, function(record){
+                        var record_value = record.get(value) || 0;
+                        total = total + record_value;
+                    });
+                    return total;
+                },
                 align: 'right',
                 renderer: function(value){
                     return value || 0;
