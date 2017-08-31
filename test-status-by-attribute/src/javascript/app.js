@@ -194,6 +194,9 @@ Ext.define("test-status-by-attribute", {
                 return me._addSummaryColumn(counts);
             },
             function(counts) {
+                return me._removeEmptyRows(counts);
+            },
+            function(counts) {
                 return me._buildGrid(counts,yAxisModelName);
             }],this).then({
             failure: this._showErrorNotification,
@@ -367,6 +370,16 @@ Ext.define("test-status-by-attribute", {
 
         });
         return counts;
+    },
+
+    _removeEmptyRows: function(counts) {
+        var clean_counts = {};
+        Ext.Object.each(counts, function(key,count) {
+            if (count.Total > 0) {
+                clean_counts[key] = count;
+            }
+        });
+        return clean_counts;
     },
 
     _getValueFromRelatedRecord: function(result,modelname,fieldname){
