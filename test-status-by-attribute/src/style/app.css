@@ -15,3 +15,7 @@
     margin-right: 5px;
     cursor: pointer;
 }
+
+.x-grid-cell-inner {
+    padding: 4px 2px;
+}

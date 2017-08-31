@@ -382,6 +382,7 @@ Ext.define("test-status-by-attribute", {
                 dataIndex:value,
                 text:value,
                 summaryType: 'sum',
+                align: 'right',
                 renderer: function(value){
                     return value || 0;
                 }
