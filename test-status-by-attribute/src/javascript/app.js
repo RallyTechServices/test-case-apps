@@ -60,26 +60,26 @@ Ext.define("test-status-by-attribute", {
             var defn = f.attributeDefinition;
 
             if ((defn && defn.Constrained && defn.AttributeType != "COLLECTION") ||
-                f.name === 'TestFolder'){
-              yAxisOptions.push({
-                 displayName: 'TestCase: ' + f.displayName,
-                 modelName: 'TestCase',
-                 fieldName: f.name,
-                 queryName: f.name
-              })
+              f.name === 'TestFolder'){
+                yAxisOptions.push({
+                    displayName: 'TestCase: ' + f.displayName,
+                    modelName: 'TestCase',
+                    fieldName: f.name,
+                    queryName: f.name
+                });
             }
         });
 
         Ext.Array.each(testSetFields, function(f){
             var defn = f.attributeDefinition;
             if ((defn && defn.Constrained && defn.AttributeType != "COLLECTION" ) ||
-                f.name === 'Name'){
-              yAxisOptions.push({
-                 displayName: 'TestSet: ' + f.displayName,
-                 modelName: 'TestSet',
-                 fieldName: f.name,
-                 queryName: 'TestSets.' + f.name
-              })
+              f.name === 'Name'){
+                yAxisOptions.push({
+                    displayName: 'TestSet: ' + f.displayName,
+                    modelName: 'TestSet',
+                    fieldName: f.name,
+                    queryName: 'TestSets.' + f.name
+                });
             }
         });
 
@@ -141,17 +141,22 @@ Ext.define("test-status-by-attribute", {
             itemId:'display_box'
         });
     },
-    _fetchTimeboxData: function(yAxisFieldName){
-       this.logger.log('_fetchTimeboxData', this.getContext().getTimeboxScope());
-       var deferred = Ext.create('Deft.Deferred');
-       this.records_in_timebox = null;
-       if (!this.getContext().getTimeboxScope()){
-           deferred.resolve(null);
-       } else {
-           var timebox = this.getContext().getTimeboxScope();
+
+    _fetchTimeboxData: function(yAxisFieldName,yAxisModelName){
+        this.logger.log('_fetchTimeboxData', yAxisFieldName, yAxisModelName, this.getContext().getTimeboxScope());
+        var deferred = Ext.create('Deft.Deferred');
+        this.records_in_timebox = null;
+        if (!this.getContext().getTimeboxScope()){
+            deferred.resolve(null);
+        } else {
+            var timebox = this.getContext().getTimeboxScope();
             this.logger.log('timeboxScope', this.getContext().getTimeboxScope().getQueryFilter());
+            var models = ['TestSet','HierarchicalRequirement','Defect'];
+            if ( yAxisModelName == "TestSet" ) { models = [yAxisModelName]; }
+            if ( yAxisModelName == "WorkProduct" ) { models = ['HierarchicalRequirement','Defect']; }
+
             Rally.technicalservices.WsapiToolbox.fetchArtifacts({
-                 models: ['TestSet','HierarchicalRequirement','Defect'],
+                 models: models,
                  fetch: ['ObjectID','TestCaseCount','TestCases','LastVerdict',yAxisFieldName],
                  filters: this.getContext().getTimeboxScope().getQueryFilter()
                }).then({
@@ -163,7 +168,7 @@ Ext.define("test-status-by-attribute", {
                   }
                });
         }
-       return deferred.promise;
+        return deferred.promise;
     },
     _updateDisplay: function(){
         var me = this,
@@ -177,7 +182,7 @@ Ext.define("test-status-by-attribute", {
         this.setLoading();
         Deft.Chain.pipeline([
             function(){
-               return me._fetchTimeboxData(yAxisFieldName);
+               return me._fetchTimeboxData(yAxisFieldName,yAxisModelName);
             },
             function(records_in_timebox) {
                 return me._fetchData(yAxisModelName,yAxisFieldName, records_in_timebox);
@@ -189,7 +194,7 @@ Ext.define("test-status-by-attribute", {
                 return me._addSummaryColumn(counts);
             },
             function(counts) {
-                return me._buildGrid(counts);
+                return me._buildGrid(counts,yAxisModelName);
             }],this).then({
             failure: this._showErrorNotification,
             success: null,
@@ -317,8 +322,6 @@ Ext.define("test-status-by-attribute", {
                                 test_case_count: 0
                             };
                         }
-                        var test_case_count = base_record.get('TestCaseCount');
-                        results_by_fieldvalue[aggregation_name].test_case_count = results_by_fieldvalue[aggregation_name].test_case_count + test_case_count;
                     }
                 });
         }
@@ -351,10 +354,17 @@ Ext.define("test-status-by-attribute", {
                 var value = count[verdict] || 0;
                 total = total + value;
             });
-            count.Total = total;
-            if ( Ext.isNumber(count.test_case_count) && count.test_case_count < count.Total) {
-                count.test_case_count = count.Total;
+            count.test_case_count_executed = total;
+            if ( Ext.isNumber(count.test_case_count) ) {
+                if ( count.test_case_count < count.test_case_count_executed ) {
+                    count.test_case_count = count.test_case_count_executed;
+                }
+                count.test_case_count_unexecuted = count.test_case_count - count.test_case_count_executed;
+                count.Total = count.test_case_count;
+            } else {
+                count.Total = total;
             }
+
         });
         return counts;
     },
@@ -374,16 +384,16 @@ Ext.define("test-status-by-attribute", {
     /*
      * Given a hash of counts (key is field value and value is hash of verdict counts)
      */
-    _buildGrid: function(counts){
-        this.logger.log('_buildGrid', counts);
-        var x_values = this._getXValuesFromCounts(counts);
+    _buildGrid: function(counts,yAxisModelName){
+        this.logger.log('_buildGrid', counts, yAxisModelName);
+        var x_values = this._getXValuesFromCounts(counts,yAxisModelName);
         var rows = Ext.Object.getValues(counts);
 
         this.logger.log('cols',x_values);
         this.logger.log('rows',rows);
 
         var store = Ext.create('Rally.data.custom.Store',{
-            fields: this._getModelFieldNames(),
+            fields: this._getModelFieldNames(yAxisModelName),
             data: rows,
             pageSize: rows.length
         });
@@ -421,19 +431,31 @@ Ext.define("test-status-by-attribute", {
                 };
             }
 
-            if ( value == "executed" ) {
+            if ( value == "test_case_count_executed" ) {
                 return {
                     xtype: 'templatecolumn',
                     tpl: Ext.create('Rally.ui.renderer.template.progressbar.ProgressBarTemplate',{
                         shouldShowPercentDone: function(recordData) {
-                            console.log(recordData);
-                            return recordData.Total > 0 && Ext.isNumber(recordData.test_case_count);
+                            return recordData.Total > 0 && Ext.isNumber(recordData.test_case_count_executed) && Ext.isNumber(recordData.test_case_count_unexecuted);
                         },
                         calculatePercent: function(recordData){
-                            return Math.round(recordData.Total * 100/ recordData.test_case_count);
+                            return Math.round(recordData.test_case_count_executed * 100/ recordData.Total);
                         }
                     })
                 };
+            }
+
+            if ( value == "test_case_count_unexecuted" ) {
+                return {
+                    dataIndex:value,
+                    text:"Unexecuted",
+                    summaryType: 'sum',
+                    align: 'right',
+                    renderer: function(value){
+                        return value || 0;
+                    }
+            };
+
             }
             return {
                 dataIndex:value,
@@ -448,16 +470,23 @@ Ext.define("test-status-by-attribute", {
         return columns;
     },
 
-    _getModelFieldNames: function() {
-        var names = ["name","executed","test_case_count"];
+    _getModelFieldNames: function(yAxisModelName) {
+        var names = ["name","test_case_count_executed","test_case_count"];
         names = names.concat(this.possibleVerdicts).concat('Total');
+        if ( yAxisModelName != "TestCase" ) {
+            names.push('test_case_count_unexecuted');
+        }
         return Ext.Array.unique(names);
 
     },
 
-    _getXValuesFromCounts: function(counts) {
-        var names = ["name","executed"];
-        names = names.concat(this.possibleVerdicts).concat('Total');
+    _getXValuesFromCounts: function(counts,yAxisModelName) {
+        var names = ["name","test_case_count_executed"];
+        names = names.concat(this.possibleVerdicts);
+        if ( yAxisModelName != "TestCase" ) {
+            names.push('test_case_count_unexecuted');
+        }
+        names.push('Total');
         return Ext.Array.unique(names);
     },
 

@@ -16,11 +16,12 @@ to testcases that are associated with the timebox via testcase or testset
 * When the app is timebox scoped and the parent record type for counting is not the testcase
 type, then there will be a percentage executed bar
 
-* When the the percentage executed bar is showing, the "None" row will include for calculation TestCases
-that got picked up by the timebox scope but are not associated with the proper type.  For example, if
-TestSet:Name is selected in the dropdown, then the test set name is the row key unless the test case was
-picked up because its Story is in the timebox.  For test cases associated with a story and a testset in the
-same timebox, the total count will be caught twice.
+* When the app is timebox scoped, the results will only contain test cases that are associated with
+the items that are associated with the timebox -- and only if those items are the type selected.  That
+is, if you choose TestSet: Name from the dropdown, only test cases related to the test sets associated
+with the timebox will be shown.  Same is true for WorkProduct: x.  However, if you choose one of the 
+TestCase attributes, then test cases that belong to stories, defects or test sets that are associated
+with the timebox will be shown and calculated.
 
 ![screenshot with execution](./images/screenshot_execution.png "execution")
 
