@@ -36,7 +36,7 @@ Ext.define("test-status-by-attribute", {
         this._updateDisplay();
     },
     _initializeApp: function(){
-        fieldBlackList = ['Milestones','Tags'];
+        fieldBlackList = ['Milestones','Tags','Release','Iteration'];
         Deft.Promise.all([
             Rally.technicalservices.WsapiToolbox.fetchModelFields('TestSet',fieldBlackList),
             Rally.technicalservices.WsapiToolbox.fetchModelFields('Artifact',fieldBlackList),
@@ -60,26 +60,26 @@ Ext.define("test-status-by-attribute", {
             var defn = f.attributeDefinition;
 
             if ((defn && defn.Constrained && defn.AttributeType != "COLLECTION") ||
-                f.name === 'TestFolder'){
-              yAxisOptions.push({
-                 displayName: 'TestCase: ' + f.displayName,
-                 modelName: 'TestCase',
-                 fieldName: f.name,
-                 queryName: f.name
-              })
+              f.name === 'TestFolder'){
+                yAxisOptions.push({
+                    displayName: 'TestCase: ' + f.displayName,
+                    modelName: 'TestCase',
+                    fieldName: f.name,
+                    queryName: f.name
+                });
             }
         });
 
         Ext.Array.each(testSetFields, function(f){
             var defn = f.attributeDefinition;
             if ((defn && defn.Constrained && defn.AttributeType != "COLLECTION" ) ||
-                f.name === 'Name'){
-              yAxisOptions.push({
-                 displayName: 'TestSet: ' + f.displayName,
-                 modelName: 'TestSet',
-                 fieldName: f.name,
-                 queryName: 'TestSets.' + f.name
-              })
+              f.name === 'Name'){
+                yAxisOptions.push({
+                    displayName: 'TestSet: ' + f.displayName,
+                    modelName: 'TestSet',
+                    fieldName: f.name,
+                    queryName: 'TestSets.' + f.name
+                });
             }
         });
 
@@ -141,18 +141,23 @@ Ext.define("test-status-by-attribute", {
             itemId:'display_box'
         });
     },
-    _fetchTimeboxData: function(){
-       this.logger.log('_fetchTimeboxData', this.getContext().getTimeboxScope());
-       var deferred = Ext.create('Deft.Deferred');
-        this.timeboxRecords = null;
-       if (!this.getContext().getTimeboxScope()){
-           deferred.resolve(null);
-       } else {
-           var timebox = this.getContext().getTimeboxScope();
+
+    _fetchTimeboxData: function(yAxisFieldName,yAxisModelName){
+        this.logger.log('_fetchTimeboxData', yAxisFieldName, yAxisModelName, this.getContext().getTimeboxScope());
+        var deferred = Ext.create('Deft.Deferred');
+        this.records_in_timebox = null;
+        if (!this.getContext().getTimeboxScope()){
+            deferred.resolve(null);
+        } else {
+            var timebox = this.getContext().getTimeboxScope();
             this.logger.log('timeboxScope', this.getContext().getTimeboxScope().getQueryFilter());
+            var models = ['TestSet','HierarchicalRequirement','Defect'];
+            if ( yAxisModelName == "TestSet" ) { models = [yAxisModelName]; }
+            if ( yAxisModelName == "WorkProduct" ) { models = ['HierarchicalRequirement','Defect']; }
+
             Rally.technicalservices.WsapiToolbox.fetchArtifacts({
-                 models: ['TestSet','HierarchicalRequirement','Defect'],
-                 fetch: ['ObjectID','TestCaseCount','TestCases','LastVerdict'],
+                 models: models,
+                 fetch: ['ObjectID','TestCaseCount','TestCases','LastVerdict',yAxisFieldName],
                  filters: this.getContext().getTimeboxScope().getQueryFilter()
                }).then({
                   success: function(results){
@@ -163,7 +168,7 @@ Ext.define("test-status-by-attribute", {
                   }
                });
         }
-       return deferred.promise;
+        return deferred.promise;
     },
     _updateDisplay: function(){
         var me = this,
@@ -177,16 +182,22 @@ Ext.define("test-status-by-attribute", {
         this.setLoading();
         Deft.Chain.pipeline([
             function(){
-               return me._fetchTimeboxData();
+               return me._fetchTimeboxData(yAxisFieldName,yAxisModelName);
             },
-            function(timeboxRecords) {
-                return me._fetchData(yAxisModelName,yAxisFieldName, timeboxRecords);
+            function(records_in_timebox) {
+                return me._fetchData(yAxisModelName,yAxisFieldName, records_in_timebox);
             },
             function(results) {
                 return me._organizeTestCaseResults(yAxisModelName,yAxisFieldName,results);
             },
             function(counts) {
-                return me._buildGrid(counts);
+                return me._addSummaryColumn(counts);
+            },
+            function(counts) {
+                return me._removeEmptyRows(counts);
+            },
+            function(counts) {
+                return me._buildGrid(counts,yAxisModelName);
             }],this).then({
             failure: this._showErrorNotification,
             success: null,
@@ -207,12 +218,12 @@ Ext.define("test-status-by-attribute", {
         return record && record.get('fieldName');
     },
 
-    _getFilters: function(yAxisModelName,yAxisFieldName, timeboxRecords){
-        this.logger.log('_getFilters', yAxisModelName, yAxisFieldName, timeboxRecords);
+    _getTestCaseResultFilters: function(yAxisModelName,yAxisFieldName, records_in_timebox){
+        this.logger.log('_getTestCaseResultFilters', yAxisModelName, yAxisFieldName, records_in_timebox);
 
         var filters = [];
-        if (timeboxRecords){
-            Ext.Array.each(timeboxRecords, function(r){
+        if (records_in_timebox){
+            Ext.Array.each(records_in_timebox, function(r){
                if (r.get('TestCaseCount') > 0){
                  var type = 'TestCase.WorkProduct.ObjectID';
                  if (r.get('_type') === 'testset'){
@@ -226,7 +237,6 @@ Ext.define("test-status-by-attribute", {
             });
             if (filters.length > 1){
                 filters = Rally.data.wsapi.Filter.or(filters);
-                this.logger.log('_getFilters', filters.toString());
             }
             if (filters.length === 0){
                //no records are in the timebox
@@ -252,20 +262,19 @@ Ext.define("test-status-by-attribute", {
           } else {
              filters = [{property:'ObjectID',operator:'>',value:0}]
           }
-          this.logger.log('_getFilters', filters);
         }
 
        return filters;
     },
 
-    _fetchData: function(yAxisModelName,yAxisFieldName, timeboxRecords){
+    _fetchData: function(yAxisModelName,yAxisFieldName, records_in_timebox){
         this.logger.log('_updateDisplay', yAxisModelName, yAxisFieldName);
-         this.timeboxRecords = timeboxRecords;
+        this.records_in_timebox = records_in_timebox;
         return Rally.technicalservices.WsapiToolbox.fetchWsapiRecords({
             model: 'TestCaseResult',
             fetch: ['TestCase','Verdict','TestSet','WorkProduct','ObjectID','Name','Date',yAxisFieldName],
             enablePostGet: true,
-            filters: this._getFilters(yAxisModelName, yAxisFieldName, timeboxRecords),
+            filters: this._getTestCaseResultFilters(yAxisModelName, yAxisFieldName, records_in_timebox),
             sorters: [{property:'Date',direction:'ASC'}]
         });
     },
@@ -287,15 +296,47 @@ Ext.define("test-status-by-attribute", {
             }
             results_by_testcase_and_subset[testcase_oid][related_item_oid] = result;
         });
-        this.logger.log(results_by_testcase_and_subset);
         // second, create an array of results for each field value on the related item
         var results_by_fieldvalue = {};
+        // charge up with base records from the timebox (e.g., test set, workproduct) if some were gotten
+        // beforehand (so they can deal with ones that don't have any results at all)
+        if ( !Ext.isEmpty(this.records_in_timebox) ) {
+                Ext.Array.each(this.records_in_timebox, function(base_record){
+                    var type = base_record.get('_type');
+                    if ( type.toLowerCase() == 'hierarchicalrequirement' || type.toLowerCase() == "defect" ) {
+                        type = 'WorkProduct';
+                    }
+                    if ( type.toLowerCase() == yAxisModelName.toLowerCase() ) {
+                        var aggregation_name = base_record.get(yAxisFieldName);
+                        if ( aggregation_name._refObjectName ) { aggregation_name = aggregation_name._refObjectName; }
+                        if ( Ext.isEmpty(results_by_fieldvalue[aggregation_name]) ) {
+                            results_by_fieldvalue[aggregation_name] = {
+                                name: aggregation_name ,
+                                test_case_count: 0
+                            };
+                        }
+                        var test_case_count = base_record.get('TestCaseCount');
+                        results_by_fieldvalue[aggregation_name].test_case_count = results_by_fieldvalue[aggregation_name].test_case_count + test_case_count;
+                    } else {
+                        var aggregation_name = "None";
+                        if ( Ext.isEmpty(results_by_fieldvalue[aggregation_name]) ) {
+                            results_by_fieldvalue[aggregation_name] = {
+                                name: aggregation_name ,
+                                test_case_count: 0
+                            };
+                        }
+                    }
+                });
+        }
+
         Ext.Object.each(results_by_testcase_and_subset,function(testcase_oid,related_item_results){
             Ext.Object.each(related_item_results, function(oid,result){
-                value = this._getValueFromRelatedRecord(result,yAxisModelName,yAxisFieldName);
-                verdict = result.get('Verdict');
+                var value = this._getValueFromRelatedRecord(result,yAxisModelName,yAxisFieldName);
+                var verdict = result.get('Verdict');
                 if ( Ext.isEmpty(results_by_fieldvalue[value]) ) {
-                    results_by_fieldvalue[value] = { name: value };
+                    results_by_fieldvalue[value] = {
+                        name: value
+                    };
                 }
                 if ( Ext.isEmpty(results_by_fieldvalue[value][verdict]) ) {
                     results_by_fieldvalue[value][verdict] = 0;
@@ -305,6 +346,40 @@ Ext.define("test-status-by-attribute", {
         },this);
 
         return results_by_fieldvalue;
+    },
+
+    _addSummaryColumn: function(counts){
+        verdict_columns = this.possibleVerdicts;
+
+        Ext.Object.each(counts, function(key,count){
+            var total = 0;
+            Ext.Array.each(verdict_columns, function(verdict){
+                var value = count[verdict] || 0;
+                total = total + value;
+            });
+            count.test_case_count_executed = total;
+            if ( Ext.isNumber(count.test_case_count) ) {
+                if ( count.test_case_count < count.test_case_count_executed ) {
+                    count.test_case_count = count.test_case_count_executed;
+                }
+                count.test_case_count_unexecuted = count.test_case_count - count.test_case_count_executed;
+                count.Total = count.test_case_count;
+            } else {
+                count.Total = total;
+            }
+
+        });
+        return counts;
+    },
+
+    _removeEmptyRows: function(counts) {
+        var clean_counts = {};
+        Ext.Object.each(counts, function(key,count) {
+            if (count.Total > 0) {
+                clean_counts[key] = count;
+            }
+        });
+        return clean_counts;
     },
 
     _getValueFromRelatedRecord: function(result,modelname,fieldname){
@@ -322,52 +397,123 @@ Ext.define("test-status-by-attribute", {
     /*
      * Given a hash of counts (key is field value and value is hash of verdict counts)
      */
-    _buildGrid: function(counts){
-        this.logger.log('_buildGrid', counts);
-        var x_values = this._getXValuesFromCounts(counts);
+    _buildGrid: function(counts,yAxisModelName){
+        this.logger.log('_buildGrid', counts, yAxisModelName);
+        var x_values = this._getXValuesFromCounts(counts,yAxisModelName);
         var rows = Ext.Object.getValues(counts);
 
         this.logger.log('cols',x_values);
         this.logger.log('rows',rows);
 
         var store = Ext.create('Rally.data.custom.Store',{
-            fields: x_values,
+            fields: this._getModelFieldNames(yAxisModelName),
             data: rows,
             pageSize: rows.length
         });
 
-        console.log(store);
-
         var container = this.down('#display_box');
         container.removeAll();
+
+        if ( rows.length === 0 ) {
+            container.add({xtype:'container',padding: 100, margin: 50,html:"No Data Found"});
+            return;
+        }
+
         container.add({
             xtype:'rallygrid',
             store: store,
             showRowActionsColumn: false,
             showPagingToolbar: false,
-            columnCfgs: this._getColumns(x_values)
+            columnCfgs: this._getColumns(x_values),
+            features: [{
+                ftype: 'summary'
+            }]
         });
     },
 
     _getColumns: function(x_values) {
         var columns = Ext.Array.map(x_values, function(value){
             if ( value == "name" ) {
-                return { dataIndex:value, text: "", flex: 1 };
+                return {
+                    dataIndex:value,
+                    text: "",
+                    flex: 1,
+                    summaryRenderer: function(value, summaryData, dataIndex) {
+                        return "Totals:";
+                    }
+                };
             }
-            return { dataIndex:value, text:value, renderer: function(value){
-                return value || 0;
-            }};
+
+            if ( value == "test_case_count_executed" ) {
+                return {
+                    xtype: 'templatecolumn',
+                    tpl: Ext.create('Rally.ui.renderer.template.progressbar.ProgressBarTemplate',{
+                        shouldShowPercentDone: function(recordData) {
+                            return recordData.Total > 0 && Ext.isNumber(recordData.test_case_count_executed) && Ext.isNumber(recordData.test_case_count_unexecuted);
+                        },
+                        calculatePercent: function(recordData){
+                            return Math.round(recordData.test_case_count_executed * 100/ recordData.Total);
+                        }
+                    })
+                };
+            }
+
+            if ( value == "test_case_count_unexecuted" ) {
+                return {
+                    dataIndex:value,
+                    text:"Unexecuted",
+                    summaryType: function(records){
+                        var total = 0;
+                        Ext.Array.each(records, function(record){
+                            var record_value = record.get(value) || 0;
+                            total = total + record_value;
+                        });
+                        return total;
+                    },
+                    align: 'right',
+                    renderer: function(value){
+                        return value || 0;
+                    }
+                };
+            }
+
+            return {
+                dataIndex:value,
+                text:value,
+                summaryType: function(records){
+                    var total = 0;
+                    Ext.Array.each(records, function(record){
+                        var record_value = record.get(value) || 0;
+                        total = total + record_value;
+                    });
+                    return total;
+                },
+                align: 'right',
+                renderer: function(value){
+                    return value || 0;
+                }
+            };
         });
         return columns;
     },
 
-    _getXValuesFromCounts: function(counts) {
+    _getModelFieldNames: function(yAxisModelName) {
+        var names = ["name","test_case_count_executed","test_case_count"];
+        names = names.concat(this.possibleVerdicts).concat('Total');
+        if ( yAxisModelName != "TestCase" ) {
+            names.push('test_case_count_unexecuted');
+        }
+        return Ext.Array.unique(names);
 
-        var names = [];
-        Ext.Object.each(counts, function(field,count){
-            Ext.Array.push(names,Ext.Object.getKeys(count));
-        });
+    },
+
+    _getXValuesFromCounts: function(counts,yAxisModelName) {
+        var names = ["name","test_case_count_executed"];
         names = names.concat(this.possibleVerdicts);
+        if ( yAxisModelName != "TestCase" ) {
+            names.push('test_case_count_unexecuted');
+        }
+        names.push('Total');
         return Ext.Array.unique(names);
     },
 
