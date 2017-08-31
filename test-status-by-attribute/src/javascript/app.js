@@ -186,6 +186,9 @@ Ext.define("test-status-by-attribute", {
                 return me._organizeTestCaseResults(yAxisModelName,yAxisFieldName,results);
             },
             function(counts) {
+                return me._addSummaryColumn(counts);
+            },
+            function(counts) {
                 return me._buildGrid(counts);
             }],this).then({
             failure: this._showErrorNotification,
@@ -287,7 +290,6 @@ Ext.define("test-status-by-attribute", {
             }
             results_by_testcase_and_subset[testcase_oid][related_item_oid] = result;
         });
-        this.logger.log(results_by_testcase_and_subset);
         // second, create an array of results for each field value on the related item
         var results_by_fieldvalue = {};
         Ext.Object.each(results_by_testcase_and_subset,function(testcase_oid,related_item_results){
@@ -305,6 +307,20 @@ Ext.define("test-status-by-attribute", {
         },this);
 
         return results_by_fieldvalue;
+    },
+
+    _addSummaryColumn: function(counts){
+        verdict_columns = this.possibleVerdicts;
+
+        Ext.Object.each(counts, function(key,count){
+            var total = 0;
+            Ext.Array.each(verdict_columns, function(verdict){
+                var value = count[verdict] || 0;
+                total = total + value;
+            });
+            count.Total = total;
+        });
+        return counts;
     },
 
     _getValueFromRelatedRecord: function(result,modelname,fieldname){
@@ -336,8 +352,6 @@ Ext.define("test-status-by-attribute", {
             pageSize: rows.length
         });
 
-        console.log(store);
-
         var container = this.down('#display_box');
         container.removeAll();
         container.add({
@@ -345,29 +359,43 @@ Ext.define("test-status-by-attribute", {
             store: store,
             showRowActionsColumn: false,
             showPagingToolbar: false,
-            columnCfgs: this._getColumns(x_values)
+            columnCfgs: this._getColumns(x_values),
+            features: [{
+                ftype: 'summary'
+            }]
         });
     },
 
     _getColumns: function(x_values) {
         var columns = Ext.Array.map(x_values, function(value){
             if ( value == "name" ) {
-                return { dataIndex:value, text: "", flex: 1 };
+                return {
+                    dataIndex:value,
+                    text: "",
+                    flex: 1,
+                    summaryRenderer: function(value, summaryData, dataIndex) {
+                        return "Totals:";
+                    }
+                };
             }
-            return { dataIndex:value, text:value, renderer: function(value){
-                return value || 0;
-            }};
+            return {
+                dataIndex:value,
+                text:value,
+                summaryType: 'sum',
+                renderer: function(value){
+                    return value || 0;
+                }
+            };
         });
         return columns;
     },
 
     _getXValuesFromCounts: function(counts) {
-
-        var names = [];
+        var names = ["name"];
+        names = names.concat(this.possibleVerdicts);
         Ext.Object.each(counts, function(field,count){
             Ext.Array.push(names,Ext.Object.getKeys(count));
         });
-        names = names.concat(this.possibleVerdicts);
         return Ext.Array.unique(names);
     },
 
