@@ -354,6 +354,12 @@ Ext.define("test-status-by-attribute", {
 
         var container = this.down('#display_box');
         container.removeAll();
+
+        if ( rows.length === 0 ) {
+            container.add({xtype:'container',padding: 100, margin: 50,html:"No Data Found"});
+            return;
+        }
+
         container.add({
             xtype:'rallygrid',
             store: store,
