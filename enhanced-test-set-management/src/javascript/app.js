@@ -91,6 +91,12 @@ Ext.define("enhanced-test-set-mgmt", {
                     storeConfig: {
                         filters: filters
                     },
+                    bulkEditConfig: {
+                      items: [{
+                          xtype: 'rallybulkmenuitemenhancedaddtestcase'
+                      }]
+                    },
+
                     rowActionColumnConfig: {
                       rowActionsFn: function (record) {
                           return [
