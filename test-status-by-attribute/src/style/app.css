@@ -19,3 +19,11 @@
 .x-grid-cell-inner {
     padding: 4px 2px;
 }
+
+.summary {
+  font-family: ProximaNovaBold;
+  text-transform: uppercase;
+}
+.non-summary {
+  font-family: ProximaNova;
+}
