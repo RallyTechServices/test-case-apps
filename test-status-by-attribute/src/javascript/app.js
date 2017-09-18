@@ -122,6 +122,8 @@ Ext.define("test-status-by-attribute", {
             fieldLabel: 'Group by',
             labelWidth: 75,
             width: 300,
+            stateful: true,
+            stateId: this.getContext().getScopedStateId('groupBy'),
             displayField: 'displayName',
             valueField: 'displayName'
         });
@@ -136,12 +138,64 @@ Ext.define("test-status-by-attribute", {
             }
         });
 
+        selectorBox.add({
+            xtype: 'container',
+            flex: 1
+        });
+
+
+        selectorBox.add({
+            xtype: 'rallybutton',
+            iconCls: 'icon-export',
+            margin: 5,
+            cls: 'rly-small secondary',
+            listeners: {
+                click: this._export,
+                scope: this
+            }
+        });
+
+
         this.add({
             xtype:'container',
             itemId:'display_box'
         });
     },
+    _export: function(){
+       this.logger.log('_export');
+       var grid = this.down('rallygrid');
+       if (!grid) { return; }
 
+       var me = this,
+            y_selector = this.down('#yAxisField'),
+            ySelectorDisplay = y_selector.getValue(),
+            yAxisModelName = this._getAxisModelName(y_selector),
+            fields = this._getExportModelFieldNames(yAxisModelName),
+            headers = Ext.Array.map(fields, function(f){
+               if (f === 'name'){ return 'Name'; }
+               if (f === 'test_case_count_executed'){ return 'Executed Test Cases'; }
+               if (f === 'test_case_count_unexecuted'){ return 'Unexecuted Test Cases'; }
+               if (f === 'test_case_count'){ return 'Total Test Cases'; }
+               return f;
+            });
+
+      this.logger.log('_export', fields);
+
+      var csv = [];
+      csv.push(headers.join(','));
+       grid.getStore().each(function(r){
+          var row = [];
+          Ext.Array.each(fields, function(f){
+              row.push(r.get(f) || 0);
+          });
+          csv.push(row.join(','));
+       });
+       var exportText = csv.join("\r\n"),
+          fileName = Ext.String.format("{0}-{1}.csv", ySelectorDisplay.replace(/[^a-zA-Z0-9]/g,"_"), Rally.util.DateTime.format(new Date(), 'Y-m-d-h-i-s'));
+
+       Rally.technicalservices.WsapiToolbox.saveCSVToFile(exportText, fileName);
+
+    },
     _fetchTimeboxData: function(yAxisFieldName,yAxisModelName){
         this.logger.log('_fetchTimeboxData', yAxisFieldName, yAxisModelName, this.getContext().getTimeboxScope());
         var deferred = Ext.create('Deft.Deferred');
@@ -439,23 +493,51 @@ Ext.define("test-status-by-attribute", {
                     text: "",
                     flex: 1,
                     summaryRenderer: function(value, summaryData, dataIndex) {
-                        return "Totals:";
+                        return "<div class='summary'>Total</div>";
                     }
                 };
             }
 
             if ( value == "test_case_count_executed" ) {
-                return {
-                    xtype: 'templatecolumn',
-                    tpl: Ext.create('Rally.ui.renderer.template.progressbar.ProgressBarTemplate',{
-                        shouldShowPercentDone: function(recordData) {
-                            return recordData.Total > 0 && Ext.isNumber(recordData.test_case_count_executed) && Ext.isNumber(recordData.test_case_count_unexecuted);
+              return {
+                  dataIndex:value,
+                  text: "",
+                  renderer: function(v,m,r){
+                     return Ext.create('Rally.ui.renderer.template.progressbar.ProgressBarTemplate',{
+                         shouldShowPercentDone: function(recordData) {
+                             return recordData.Total > 0 && Ext.isNumber(recordData.test_case_count_executed) && Ext.isNumber(recordData.test_case_count_unexecuted);
+                         },
+                         calculatePercent: function(recordData){
+                             return Math.round((recordData.test_case_count_executed || 0) * 100/ recordData.Total);
+                         },
+                         calculateColorFn: function(recordData){
+                            return Rally.util.Colors.blue_lt;
+                         }
+                     }).apply(r.getData());
+                  },
+                  summaryType: function(records){
+                      var total = 0;
+                      Ext.Array.each(records, function(record){
+                          var record_value = record.get(value) || 0;
+                          total = total + record_value;
+                      });
+                      return total;
+                  },
+                  summaryRenderer: function(value, summaryData, dataIndex) {
+                    return Ext.create('Rally.ui.renderer.template.progressbar.ProgressBarTemplate',{
+                        shouldShowPercentDone: function(recordData){
+                            return recordData.Total > 0;
                         },
                         calculatePercent: function(recordData){
-                            return Math.round(recordData.test_case_count_executed * 100/ recordData.Total);
+                            return Math.round((value || 0) * 100/recordData.Total);
+                        },
+                        calculateColorFn: function(recordData){
+                           return Rally.util.Colors.blue_lt;
+
                         }
-                    })
-                };
+                    }).apply(summaryData.record.getData());
+                  }
+              };
             }
 
             if ( value == "test_case_count_unexecuted" ) {
@@ -470,9 +552,21 @@ Ext.define("test-status-by-attribute", {
                         });
                         return total;
                     },
-                    align: 'right',
-                    renderer: function(value){
-                        return value || 0;
+                    align: 'center',
+                    renderer: function(val, meta_data, record){
+                      meta_data.tdCls = 'non-summary';
+                        var total = record && record.get('Total');
+                        if (total > 0){
+                           return Ext.String.format("{0}<br/>{1}%",val, Math.round(val*100/total));
+                        }
+                        return Ext.String.format("{0}<br/>N/A",val || 0);
+                    },
+                    summaryRenderer: function(value, summaryData, dataIndex) {
+                      var total = summaryData.record && summaryData.record.get('Total');
+                      if (total > 0){
+                         return Ext.String.format("<div class='summary'>{0}<br/>{1}%</div>",value, Math.round(value*100/total));
+                      }
+                      return Ext.String.format("<div class='summary'>{0}</div>",value || 0);
                     }
                 };
             }
@@ -488,9 +582,21 @@ Ext.define("test-status-by-attribute", {
                     });
                     return total;
                 },
-                align: 'right',
-                renderer: function(value){
-                    return value || 0;
+                align: 'center',
+                cls: 'non-summary',
+                renderer: function(v, m, record){
+                  var total = record && record.get('Total');
+                  if (total > 0){
+                     return Ext.String.format("{0}<br/>{1}%",v || 0, Math.round(v*100/total));
+                  }
+                  return Ext.String.format("{0}<br/>N/A%",v || 0);
+                },
+                summaryRenderer: function(value, summaryData, dataIndex) {
+                  var total = summaryData.record && summaryData.record.get('Total');
+                  if (total > 0){
+                     return Ext.String.format("<div class='summary'>{0}<br/>{1}%</div>",value, Math.round(value*100/total));
+                  }
+                  return Ext.String.format("<div class='summary'>{0}</div>",value || 0);
                 }
             };
         });
@@ -504,8 +610,18 @@ Ext.define("test-status-by-attribute", {
             names.push('test_case_count_unexecuted');
         }
         return Ext.Array.unique(names);
-
     },
+
+    _getExportModelFieldNames: function(yAxisModelName) {
+        var names = ["name","test_case_count_executed"];
+        names = names.concat(this.possibleVerdicts);
+        if ( yAxisModelName != "TestCase" ) {
+            names.push('test_case_count_unexecuted');
+        }
+        names.push("test_case_count");
+        return Ext.Array.unique(names);
+    },
+
 
     _getXValuesFromCounts: function(counts,yAxisModelName) {
         var names = ["name","test_case_count_executed"];
